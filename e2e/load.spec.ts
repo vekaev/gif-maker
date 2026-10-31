@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => { await open(page) })
 
 test('starts with a drop zone and nothing to export', async ({ page }) => {
   await expect(page.locator('#drop')).toBeVisible()
-  await expect(page.locator('#drop')).toContainText('Drop a video here')
+  await expect(page.locator('#drop')).toContainText('Drop a video, GIF or photo here')
   await expect(page.locator('#stage')).toBeHidden()
   await expect(page.locator('#export')).toBeDisabled()
   await expect(page.locator('#export')).toHaveText('Make GIF')

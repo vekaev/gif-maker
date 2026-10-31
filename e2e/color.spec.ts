@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { open, loadVideo, seek, setSlider, previewColor, previewStats } from './helpers'
+import { open, loadVideo, seek, setSlider, previewColor, previewStats, previewGrid } from './helpers'
 
 // fade.mp4 is a flat frame whose grey level is 51 × seconds; bars.mp4 is a colourful test pattern.
 test.beforeEach(async ({ page }) => { await open(page) })
@@ -80,18 +80,22 @@ test.describe('filters', () => {
 
   test('every black-and-white look turns the picture grey, Color brings colour back', async ({ page }) => {
     expect((await previewStats(page)).maxChroma).toBeGreaterThan(100)
-    const means: Record<string, number> = {}
+    const grids: Record<string, number[]> = {}
     for (const f of ['mono', 'silvertone', 'noir', 'leica', 'leicaHC', 'acros']) {
       await page.click(`#filters [data-f=${f}]`)
       await expect(page.locator('#filters button.on')).toHaveAttribute('data-f', f)
       const s = await previewStats(page)
       // Silvertone has a faint cool tint in the midtones; the rest are neutral
       expect(s.maxChroma, f).toBeLessThanOrEqual(f === 'silvertone' ? 14 : 1)
-      means[f] = s.mean
+      grids[f] = await previewGrid(page)
     }
-    // the looks are actually different from each other
-    expect(new Set(Object.values(means).map((m) => Math.round(m))).size).toBe(6)
-    expect(means.noir).not.toBeCloseTo(means.mono, 0)
+    // every pair of looks gives a visibly different picture (mean difference per pixel)
+    const names = Object.keys(grids)
+    for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
+      const a = grids[names[i]], b = grids[names[j]]
+      const diff = a.reduce((s, v, k) => s + Math.abs(v - b[k]), 0) / a.length
+      expect(diff, `${names[i]} vs ${names[j]}`).toBeGreaterThan(6)
+    }
 
     await page.click('#filters [data-f=color]')
     expect((await previewStats(page)).maxChroma).toBeGreaterThan(100)

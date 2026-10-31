@@ -6,8 +6,8 @@
 
 **Crop, trim, tone. Nothing else.**
 
-Turn a video into a sharp GIF, MP4, WebM or Telegram sticker right in your browser: crop it to 1:1,<br>
-cut the moment you want, lift a dark clip, give it a black-and-white film look. Nothing is uploaded.
+Turn a video, a GIF or a photo into a sharp GIF, MP4, WebM or Telegram sticker right in your browser:<br>
+crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-white film look. Nothing is uploaded.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/vekaev/gif-maker/ci.yml?branch=main&style=flat-square&label=tests&logo=playwright&logoColor=white)](https://github.com/vekaev/gif-maker/actions/workflows/ci.yml)
 [![Runs in the browser](https://img.shields.io/badge/runs%20in-the%20browser-4f8cff?style=flat-square&logo=googlechrome&logoColor=white)](https://vekaev.github.io/gif-maker/)
@@ -23,9 +23,9 @@ cut the moment you want, lift a dark clip, give it a black-and-white film look. 
 
 <br><br>
 
-<img src="docs/screenshot.png" alt="GIF Maker: a video with a square crop frame on the left, and on the right a black-and-white preview, the filter list with Leica Monochrom selected, and the crop controls" width="100%">
+<img src="docs/screenshot.png" alt="GIF Maker in Before / After view: a square crop of a colourful clip, the original on the left of a white divider and the Leica Monochrom black-and-white result on the right; the filter, frame, trim and colour controls on the side" width="100%">
 
-<sub>The demo clip is a generated Mandelbrot zoom; the preview shows the Leica Monochrom look.</sub>
+<sub>The demo clip is a generated Mandelbrot zoom, shown in Before / After with the Leica Monochrom look.</sub>
 
 <p>
   <a href="#features">Features</a> ·
@@ -41,6 +41,12 @@ cut the moment you want, lift a dark clip, give it a black-and-white film look. 
 
 ## Features
 
+- **Video, GIF or photo in.** MP4, MOV, WebM and anything else your browser plays; animated GIF, WebP or
+  PNG (each frame keeps its own timing); or a photo, which becomes a 3-second clip. So a GIF you already
+  edited elsewhere can become a Telegram sticker or an MP4.
+- **See the result big, or side by side.** **Crop** shows the whole frame with the crop box. **Result**
+  fills the main area with the finished picture (drag it to move the crop). **Before / After** puts the
+  original on the left and the result on the right of a line you drag.
 - **Crop to any shape.** 1:1, 4:5, 9:16, 16:9 or the original. Drag the frame, scroll to zoom, or snap it to
   the left edge, the center or the right edge in one click. Everything outside the frame dims, so you see
   exactly what you'll get.
@@ -141,8 +147,8 @@ It works opened straight from disk too.
 
 One `index.html`, plain JavaScript, no framework.
 
-- **Decoding:** the browser's `<video>` element, so anything your browser plays works (MP4, MOV, HEVC,
-  WebM…).
+- **Decoding:** the browser's `<video>` element for video, so anything your browser plays works (MP4,
+  MOV, HEVC, WebM…). GIFs and animated images are decoded frame by frame with `ImageDecoder`.
 - **GIF:** [gifenc](https://github.com/mattdesl/gifenc) writes the file. Palette mapping, dithering and the
   colour pipeline are custom, and run in a Web Worker.
 - **MP4 / WebM:** [WebCodecs](https://developer.mozilla.org/docs/Web/API/WebCodecs_API) encodes, and
@@ -152,7 +158,7 @@ One `index.html`, plain JavaScript, no framework.
 
 ## Privacy
 
-Your video never leaves your computer: it's read, processed and encoded on the page. The only network
+Your files never leave your computer: they're read, processed and encoded on the page. The only network
 requests load the three libraries above from jsDelivr. Exports are kept in this browser's storage until
 you remove them or clear site data. No analytics, no cookies, no accounts.
 
@@ -170,16 +176,21 @@ npm run test:e2e:ui        # the suite in Playwright's UI
 The **end-to-end suite** (`e2e/`, Playwright, Google Chrome) drives the real page with small generated
 clips in `e2e/fixtures` and checks the actual output files, not just the UI:
 
+- **Sources:** MP4, WebM, an animated GIF (right frame at each moment), a photo, drag and drop, switching
+  files, and a clear message for a file that isn't a video.
+- **Views:** Crop, Result and Before / After; the result fills the main area in the crop's shape; the
+  before side stays in colour and the after side follows the look as you drag the line.
 - **Crop:** every aspect, snapping to the edges (by the colours that end up in the frame), dragging,
   zooming, no upscaling, the dimmed outside.
 - **Trim:** the sliders, **Start here / End here**, and that the preview loops inside the clip.
 - **Light and colour:** each slider changes the right pixels, **Auto** lifts a dark clip, **Reset**. All
-  six B&W looks come out grey and different from each other, and grain adds noise.
+  six B&W looks come out grey and clearly different from each other, and grain adds noise.
 - **GIF:** frame count, size, exact length, that the right moments are in it (a fade's brightness frame by
   frame, with no steps), colour settings baked in, all-grey B&W, dithering, the 50 frames/s cap, encoding
   in a worker with no long main-thread tasks, and opening the page straight from disk.
 - **MP4 / WebM / sticker:** codec, size, length and the sound track, read from the files themselves. Also
-  that B&W survives into the video, and that the sticker stays within Telegram's 512 px, 3 s and 256 KB.
+  that B&W survives into the video, that a GIF turns into a sticker, and that the sticker stays within
+  Telegram's 512 px, 3 s and 256 KB.
 - **Exports list:** order, Save links, surviving a reload, removing.
 - **Layout:** fits the window with no page scroll, and works at phone width.
 

@@ -25,7 +25,9 @@ export async function open(page: Page, url = '/') {
 }
 
 export async function loadVideo(page: Page, name: string) {
+  const loads = await page.evaluate(() => window.gifMaker.loads)
   await page.setInputFiles('#file', fixture(name))
+  await page.waitForFunction((n) => window.gifMaker.loads > n, loads)
   await expect(page.locator('#export')).toBeEnabled()
   await page.waitForFunction(() => window.gifMaker.video.readyState >= 2)
 }
@@ -79,6 +81,21 @@ export async function previewStats(page: Page) {
     }
     const n = d.length / 4, mean = sum / n
     return { maxChroma, mean, sd: Math.sqrt(sum2 / n - mean * mean), w: c.width, h: c.height }
+  })
+}
+
+// The preview's grey levels on a 32×32 grid, to compare two looks pixel by pixel.
+export async function previewGrid(page: Page) {
+  await settle(page)
+  return page.evaluate(() => {
+    const c = document.getElementById('out') as HTMLCanvasElement
+    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data
+    const g: number[] = []
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const i = ((Math.floor((y + 0.5) * c.height / 32)) * c.width + Math.floor((x + 0.5) * c.width / 32)) * 4
+      g.push((d[i] + d[i + 1] + d[i + 2]) / 3)
+    }
+    return g
   })
 }
 

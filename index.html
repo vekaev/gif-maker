@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GIF Maker</title>
-<meta name="description" content="Turn a video into a sharp GIF in your browser: crop to 1:1, trim, fix the light, add a black-and-white film look. Nothing is uploaded.">
+<meta name="description" content="Turn a video, GIF or photo into a sharp GIF, MP4 or Telegram sticker in your browser: crop to 1:1, trim, fix the light, add a black-and-white film look. Nothing is uploaded.">
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMmMyZTM0Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzBlMGYxMSIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIyOCIgZmlsbD0idXJsKCNiZykiLz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0zMCA0OFYzMGgxOCIvPgogICAgPHBhdGggZD0iTTgwIDMwaDE4djE4Ii8+CiAgICA8cGF0aCBkPSJNOTggODB2MThIODAiLz4KICAgIDxwYXRoIGQ9Ik00OCA5OEgzMFY4MCIvPgogIDwvZz4KICA8dGV4dCB4PSI2NCIgeT0iNzQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSItYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdIZWx2ZXRpY2EgTmV1ZScsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjMwIiBmb250LXdlaWdodD0iODAwIiBmaWxsPSIjZmZmIiBsZXR0ZXItc3BhY2luZz0iMSI+R0lGPC90ZXh0PgogIDxjaXJjbGUgY3g9Ijk4IiBjeT0iMzAiIHI9IjAiIGZpbGw9IiM0ZjhjZmYiLz4KPC9zdmc+Cg==">
 <style>
   :root {
@@ -41,6 +41,9 @@
   #stage { display: none; flex: 1; min-height: 0; flex-direction: column; }
   #frame { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
   #view { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; border-radius: 6px; cursor: move; touch-action: none; background: #000; }
+  #view[data-mode="result"] { cursor: grab; }
+  #view[data-mode="compare"] { cursor: ew-resize; }
+  #modes { margin-bottom: 10px; }
   .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
   .row label { width: 96px; flex: none; color: var(--muted); }
   .row input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
@@ -74,27 +77,32 @@
 <body>
 <header>
   <h1>GIF Maker</h1>
-  <span class="hint">Runs in your browser. Your video never leaves your computer.</span>
+  <span class="hint">Runs in your browser. Your files never leave your computer.</span>
   <a class="gh" href="https://github.com/vekaev/gif-maker">GitHub ↗</a>
 </header>
 <main>
   <section>
     <div class="panel">
-      <div id="drop">Drop a video here, or click to choose a file<input id="file" type="file" accept="video/*" hidden></div>
+      <div id="drop">Drop a video, GIF or photo here, or click to choose a file<input id="file" type="file" accept="video/*,image/*" hidden></div>
       <div id="stage">
+        <div class="seg" id="modes">
+          <button data-m="crop" class="on">Crop</button>
+          <button data-m="result">Result</button>
+          <button data-m="compare">Before / After</button>
+        </div>
         <div id="frame"><canvas id="view"></canvas></div>
         <div id="timeline">
           <button id="play">⏸</button>
           <input id="seek" type="range" min="0" max="1000" value="0">
           <span id="clock" class="muted">0.0 s</span>
         </div>
-        <p class="muted">Drag the frame to move it. Scroll or use the Size slider to zoom.</p>
+        <p class="muted" id="viewHint">Drag the frame to move it. Scroll or use the Size slider to zoom.</p>
       </div>
     </div>
   </section>
 
   <aside>
-    <div class="panel">
+    <div class="panel" id="previewPanel">
       <h2>Preview</h2>
       <canvas id="out"></canvas>
     </div>
@@ -179,8 +187,34 @@ const GIFENC = 'https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js';
 const { GIFEncoder, quantize } = await import(GIFENC);
 
 const $ = (id) => document.getElementById(id);
-const video = document.createElement('video');
-video.muted = true; video.playsInline = true; video.loop = true;
+const videoEl = document.createElement('video');
+videoEl.muted = true; videoEl.playsInline = true; videoEl.loop = true;
+
+// A decoded GIF, animated WebP/PNG or photo that behaves enough like a <video> for this page:
+// currentTime, duration, play/pause, 'seeked' events, and the frame to draw at the current time.
+class FrameClip extends EventTarget {
+  constructor(frames, duration) {
+    super();
+    Object.assign(this, { frames, duration, videoWidth: frames[0].bmp.width, videoHeight: frames[0].bmp.height,
+      readyState: 4, seeking: false, paused: true, t: 0, since: 0 });
+  }
+  get currentTime() { return this.paused ? this.t : (this.t + (performance.now() - this.since) / 1000) % this.duration; }
+  set currentTime(v) {
+    this.t = Math.max(0, Math.min(v, this.duration)); this.since = performance.now();
+    setTimeout(() => this.dispatchEvent(new Event('seeked')));
+  }
+  play() { if (this.paused) { this.since = performance.now(); this.paused = false; } return Promise.resolve(); }
+  pause() { if (!this.paused) { this.t = this.currentTime; this.paused = true; } }
+  get frame() {
+    const t = this.currentTime + 1e-6, f = this.frames;
+    let lo = 0, hi = f.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (f[mid].t <= t) lo = mid; else hi = mid - 1; }
+    return f[lo].bmp;
+  }
+  close() { this.frames.forEach((f) => f.bmp.close()); }
+}
+let video = videoEl;
+const frameOf = (m) => m instanceof FrameClip ? m.frame : m;
 const view = $('view'), vctx = view.getContext('2d');
 const out = $('out'), octx = out.getContext('2d');
 
@@ -201,8 +235,8 @@ const FILTERS = {
   silvertone: { name: 'iPhone Silvertone', mix: [0.30, 0.59, 0.11], exp: 0.2, black: 0.02, s: 0.35, tint: [-5, 0, 7] },
   noir:       { name: 'iPhone Noir', mix: [0.45, 0.50, 0.05], black: 0.08, white: 0.92, s: 0.7 },
   leica:      { name: 'Leica Monochrom', mix: [0.33, 0.50, 0.17], black: 0.015, s: 0.2 },
-  leicaHC:    { name: 'Leica High Contrast', mix: [0.36, 0.52, 0.12], black: 0.06, white: 0.97, s: 0.55 },
-  acros:      { name: 'Fuji Acros', mix: [0.40, 0.52, 0.08], black: 0.035, s: 0.35 },
+  leicaHC:    { name: 'Leica High Contrast', mix: [0.30, 0.59, 0.11], black: 0.07, white: 0.93, s: 0.6 },
+  acros:      { name: 'Fuji Acros', mix: [0.46, 0.48, 0.06], black: 0.03, white: 1.06, s: 0.3 },
 };
 let filter = 'color';
 for (const [key, f] of Object.entries(FILTERS)) {
@@ -347,34 +381,84 @@ drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); e.data
 document.body.ondragover = (e) => e.preventDefault();
 document.body.ondrop = (e) => { e.preventDefault(); e.dataTransfer.files[0] && load(e.dataTransfer.files[0]); };
 
+function showError(message) {
+  $('error').textContent = message;
+  $('error').hidden = !message;
+}
+
 function load(file) {
   fileName = file.name.replace(/\.[^.]+$/, '');
-  loadSrc(URL.createObjectURL(file));
+  showError('');
+  if (file.type.startsWith('image/')) loadImage(file);
+  else loadSrc(URL.createObjectURL(file));
 }
 
 function loadSrc(src) {
-  video.src = src;
-  video.onloadedmetadata = () => {
-    const maxW = Math.min(1000, video.videoWidth);
-    view.width = maxW;
-    view.height = Math.round(maxW * video.videoHeight / video.videoWidth);
-    range = { start: 0, end: video.duration };
-    $('start').value = 0; $('end').value = 1000;
-    drop.style.display = 'none';
-    $('stage').style.display = 'flex';
-    $('export').disabled = false;
-    setAspect(aspect);
-    updateRangeLabels();
-    video.play();
-    $('play').textContent = '⏸';
-  };
+  videoEl.onloadedmetadata = () => useMedia(videoEl);
+  videoEl.onerror = () => showError('This browser can’t play that file. Try an MP4, MOV, WebM or a GIF.');
+  videoEl.src = src;
 }
+
+// GIFs and animated images are decoded frame by frame with ImageDecoder; a still photo becomes a 3-second clip.
+async function loadImage(file) {
+  try {
+    let frames = [], t = 0;
+    if ('ImageDecoder' in window && await ImageDecoder.isTypeSupported(file.type)) {
+      const dec = new ImageDecoder({ data: file.stream(), type: file.type });
+      await dec.tracks.ready;
+      await dec.completed;
+      const n = dec.tracks.selectedTrack.frameCount;
+      let scale = 1;
+      for (let i = 0; i < n; i++) {
+        const { image } = await dec.decode({ frameIndex: i });
+        // keep the decoded frames under ~600 MB of memory
+        if (i === 0) scale = Math.min(1, Math.sqrt(6e8 / (image.displayWidth * image.displayHeight * 4 * n)));
+        const bmp = await createImageBitmap(image, scale < 1
+          ? { resizeWidth: Math.round(image.displayWidth * scale), resizeHeight: Math.round(image.displayHeight * scale), resizeQuality: 'high' } : {});
+        const d = (image.duration || 0) / 1e6;
+        frames.push({ t, bmp });
+        t += d > 0.011 ? d : 0.1; // browsers play GIF delays of 0–10 ms as 100 ms
+        image.close();
+      }
+      dec.close();
+    } else {
+      frames = [{ t: 0, bmp: await createImageBitmap(file) }];
+    }
+    if (frames.length === 1) t = 3;
+    useMedia(new FrameClip(frames, t));
+  } catch (e) {
+    console.error(e);
+    showError(`Can’t open this file: ${e.message || e}`);
+  }
+}
+
+function useMedia(m) {
+  if (video !== m) {
+    if (video instanceof FrameClip) video.close();
+    else if (m !== videoEl) { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load(); }
+  }
+  video = m;
+  window.gifMaker.loads++;
+  crop = { x: 0, y: 0, w: 0, h: 0 };
+  range = { start: 0, end: video.duration };
+  $('start').value = 0; $('end').value = 1000;
+  drop.style.display = 'none';
+  $('stage').style.display = 'flex';
+  $('export').disabled = false;
+  setAspect(aspect);
+  updateRangeLabels();
+  lastKey = '';
+  video.play();
+  $('play').textContent = '⏸';
+}
+
 // A small window into the app for the end-to-end tests (and the curious).
 window.gifMaker = {
   load: loadSrc,
-  video,
+  get video() { return video; },
+  loads: 0,
   usedWorker: null,
-  state: () => ({ crop: { ...crop }, range: { ...range }, aspect, filter, out: outSize(), view: { w: view.width, h: view.height }, source: { w: video.videoWidth, h: video.videoHeight } }),
+  state: () => ({ crop: { ...crop }, range: { ...range }, aspect, filter, mode, split, out: outSize(), view: { w: view.width, h: view.height }, source: { w: video.videoWidth, h: video.videoHeight } }),
 };
 
 // ---------- crop ----------
@@ -434,16 +518,48 @@ document.querySelectorAll('[data-snap]').forEach((b) => b.onclick = () => {
   clampCrop();
 });
 
+// ---------- views ----------
+// Crop: the whole frame with the crop box. Result: the finished picture, big. Before / After: the
+// cropped original on the left and the result on the right of a line you drag.
+let mode = 'crop', split = 0.5;
+const HINTS = {
+  crop: 'Drag the frame to move it. Scroll or use the Size slider to zoom.',
+  result: 'The finished picture. Drag to move the crop, scroll to zoom.',
+  compare: 'Drag the line: before on the left, after on the right.',
+};
+function setMode(m) {
+  mode = m;
+  view.dataset.mode = m;
+  $('modes').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
+  $('viewHint').textContent = HINTS[m];
+  $('previewPanel').hidden = m !== 'crop';
+  lastKey = '';
+}
+$('modes').onclick = (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.m); };
+
 let drag = null;
 const toSrc = (e) => {
   const r = view.getBoundingClientRect();
   return { x: (e.clientX - r.left) / r.width * video.videoWidth, y: (e.clientY - r.top) / r.height * video.videoHeight };
 };
-view.onpointerdown = (e) => { view.setPointerCapture(e.pointerId); const p = toSrc(e); drag = { px: p.x, py: p.y, x: crop.x, y: crop.y }; };
+const toSplit = (e) => { const r = view.getBoundingClientRect(); split = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+view.onpointerdown = (e) => {
+  view.setPointerCapture(e.pointerId);
+  if (mode === 'compare') { toSplit(e); drag = { split: true }; return; }
+  drag = { cx: e.clientX, cy: e.clientY, x: crop.x, y: crop.y, p: toSrc(e) };
+};
 view.onpointermove = (e) => {
   if (!drag) return;
-  const p = toSrc(e);
-  crop.x = drag.x + p.x - drag.px; crop.y = drag.y + p.y - drag.py;
+  if (drag.split) { toSplit(e); return; }
+  if (mode === 'crop') {
+    const p = toSrc(e);
+    crop.x = drag.x + p.x - drag.p.x; crop.y = drag.y + p.y - drag.p.y;
+  } else {
+    // in the result the picture follows the pointer, so the crop moves the other way
+    const r = view.getBoundingClientRect();
+    crop.x = drag.x - (e.clientX - drag.cx) * crop.w / r.width;
+    crop.y = drag.y - (e.clientY - drag.cy) * crop.h / r.height;
+  }
   clampCrop();
 };
 view.onpointerup = () => drag = null;
@@ -504,7 +620,7 @@ $('reset').onclick = () => { colorIds.forEach((id) => $(id).value = defaults[id]
 
 // Auto: lift exposure so highlights reach ~95%, then open shadows so the median sits near the middle.
 $('auto').onclick = () => {
-  octx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
+  octx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
   const raw = octx.getImageData(0, 0, out.width, out.height).data;
   const ls = [];
   for (let i = 0; i < raw.length; i += 16) ls.push((0.299 * raw[i] + 0.587 * raw[i + 1] + 0.114 * raw[i + 2]) / 255);
@@ -521,26 +637,69 @@ $('auto').onclick = () => {
 };
 
 // ---------- render loop ----------
+// The big view keeps 1000 px on its longer side in Crop (800 in Result, where every pixel is processed).
+function sizeView(w, h, long) {
+  const W = w >= h ? long : Math.max(1, Math.round(long * w / h)), H = w >= h ? Math.max(1, Math.round(long * h / w)) : long;
+  if (view.width !== W || view.height !== H) { view.width = W; view.height = H; }
+}
+
+function drawCropView(frame) {
+  sizeView(video.videoWidth, video.videoHeight, 1000);
+  const k = view.width / video.videoWidth;
+  vctx.imageSmoothingQuality = 'high';
+  vctx.drawImage(frame, 0, 0, view.width, view.height);
+  vctx.fillStyle = 'rgba(0,0,0,.62)';
+  vctx.beginPath();
+  vctx.rect(0, 0, view.width, view.height);
+  vctx.rect(crop.x * k, crop.y * k, crop.w * k, crop.h * k);
+  vctx.fill('evenodd');
+  vctx.strokeStyle = '#fff'; vctx.lineWidth = 2;
+  vctx.strokeRect(crop.x * k + 1, crop.y * k + 1, crop.w * k - 2, crop.h * k - 2);
+}
+
+function drawResultView(frame, compare) {
+  sizeView(crop.w, crop.h, 800);
+  const W = view.width, H = view.height;
+  vctx.imageSmoothingQuality = 'high';
+  vctx.drawImage(frame, crop.x, crop.y, crop.w, crop.h, 0, 0, W, H);
+  const sx = compare ? Math.round(split * W) : 0;
+  if (sx < W) {
+    const img = vctx.getImageData(sx, 0, W - sx, H);
+    adjust(img.data, P, (Math.random() * 2 ** 31) | 0);
+    applyTint(img.data, P);
+    vctx.putImageData(img, sx, 0);
+  }
+  if (!compare) return;
+  const u = Math.max(1, W / 400);
+  vctx.fillStyle = '#fff';
+  vctx.fillRect(sx - u, 0, 2 * u, H);
+  vctx.beginPath(); vctx.arc(sx, H / 2, 14 * u, 0, Math.PI * 2); vctx.fill();
+  vctx.fillStyle = '#111'; vctx.font = `${Math.round(13 * u)}px -apple-system, sans-serif`;
+  vctx.textAlign = 'center'; vctx.textBaseline = 'middle';
+  vctx.fillText('‹ ›', sx, H / 2);
+  const label = (text, x, align) => {
+    vctx.font = `600 ${Math.round(11 * u)}px -apple-system, sans-serif`; vctx.textAlign = align; vctx.textBaseline = 'top';
+    const w = vctx.measureText(text).width + 12 * u, bx = align === 'left' ? x : x - w;
+    vctx.fillStyle = 'rgba(0,0,0,.55)'; vctx.fillRect(bx, 8 * u, w, 20 * u);
+    vctx.fillStyle = '#fff'; vctx.fillText(text, align === 'left' ? bx + 6 * u : x - 6 * u, 12 * u);
+  };
+  label('BEFORE', 8 * u, 'left');
+  label('AFTER', W - 8 * u, 'right');
+}
 // Redraw only when the frame, the crop or the settings changed, so a paused video costs nothing.
 let lastKey = '';
 function draw() {
   if (video.readyState >= 2 && !exporting && !video.seeking) {
     if (video.currentTime >= range.end || video.currentTime < range.start - 0.05) video.currentTime = range.start;
-    const key = `${video.currentTime}|${crop.x}|${crop.y}|${crop.w}|${out.width}|${version}`;
+    const key = `${video.currentTime}|${crop.x}|${crop.y}|${crop.w}|${crop.h}|${out.width}|${version}|${mode}|${split}`;
     if (key !== lastKey) {
       lastKey = key;
-      const k = view.width / video.videoWidth;
-      vctx.drawImage(video, 0, 0, view.width, view.height);
-      vctx.fillStyle = 'rgba(0,0,0,.62)';
-      vctx.beginPath();
-      vctx.rect(0, 0, view.width, view.height);
-      vctx.rect(crop.x * k, crop.y * k, crop.w * k, crop.h * k);
-      vctx.fill('evenodd');
-      vctx.strokeStyle = '#fff'; vctx.lineWidth = 2;
-      vctx.strokeRect(crop.x * k + 1, crop.y * k + 1, crop.w * k - 2, crop.h * k - 2);
+      const frame = frameOf(video);
+      if (mode === 'crop') drawCropView(frame);
+      else drawResultView(frame, mode === 'compare');
 
       octx.imageSmoothingQuality = 'high';
-      octx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
+      octx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
       const img = octx.getImageData(0, 0, out.width, out.height);
       adjust(img.data, P, (Math.random() * 2 ** 31) | 0);
       applyTint(img.data, P);
@@ -665,7 +824,7 @@ async function encodeGif(plan, grab, onProgress) {
     const k = Math.min(32, n), frame = sw * sh * 4, all = new Uint8ClampedArray(frame * k);
     for (let j = 0; j < k; j++) {
       await seekTo(start + Math.round(j * (n - 1) / Math.max(1, k - 1)) / fps);
-      sctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, sw, sh);
+      sctx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, sw, sh);
       const d = sctx.getImageData(0, 0, sw, sh).data;
       adjust(d, P, j + 1);
       all.set(d, j * frame);
@@ -777,7 +936,7 @@ $('export').onclick = async () => {
   ctx.imageSmoothingQuality = 'high';
   const grab = async (i) => {
     await seekTo(start + i / fps);
-    ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, s.w, s.h);
+    ctx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, s.w, s.h);
     return ctx.getImageData(0, 0, s.w, s.h).data;
   };
   const onProgress = (v) => prog.value = v;
