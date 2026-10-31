@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GIF Maker</title>
+<meta name="description" content="Turn a video into a sharp GIF in your browser: crop to 1:1, trim, fix the light, add a black-and-white film look. Nothing is uploaded.">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMmMyZTM0Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzBlMGYxMSIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjEyOCIgaGVpZ2h0PSIxMjgiIHJ4PSIyOCIgZmlsbD0idXJsKCNiZykiLz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0zMCA0OFYzMGgxOCIvPgogICAgPHBhdGggZD0iTTgwIDMwaDE4djE4Ii8+CiAgICA8cGF0aCBkPSJNOTggODB2MThIODAiLz4KICAgIDxwYXRoIGQ9Ik00OCA5OEgzMFY4MCIvPgogIDwvZz4KICA8dGV4dCB4PSI2NCIgeT0iNzQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSItYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdIZWx2ZXRpY2EgTmV1ZScsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjMwIiBmb250LXdlaWdodD0iODAwIiBmaWxsPSIjZmZmIiBsZXR0ZXItc3BhY2luZz0iMSI+R0lGPC90ZXh0PgogIDxjaXJjbGUgY3g9Ijk4IiBjeT0iMzAiIHI9IjAiIGZpbGw9IiM0ZjhjZmYiLz4KPC9zdmc+Cg==">
+<style>
+  :root {
+    --bg: #111214; --panel: #1b1c20; --line: #2c2e34; --text: #e8e8ea; --muted: #9a9ca3;
+    --accent: #4f8cff; --accent-2: #2d5fd0;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f4f6; --panel: #ffffff; --line: #dcdde2; --text: #1a1b1e; --muted: #61646c;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  header { padding: 10px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex: none; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .hint { color: var(--muted); font-size: 12px; }
+  header .gh { margin-left: auto; color: var(--muted); font-size: 12px; text-decoration: none; }
+  header .gh:hover { color: var(--text); }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 12px 20px; }
+  main > section { min-height: 0; display: flex; }
+  main > section > .panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  main > aside { min-height: 0; overflow-y: auto; }
+  @media (max-width: 900px) {
+    body { height: auto; overflow: auto; }
+    main { grid-template-columns: 1fr; }
+    main > section > .panel { min-height: 60vh; }
+  }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .panel + .panel { margin-top: 12px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  #drop { flex: 1; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--line); border-radius: 10px; padding: 48px 16px; text-align: center; color: var(--muted); cursor: pointer; }
+  #drop.over { border-color: var(--accent); color: var(--text); }
+  #stage { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  #frame { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #view { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; border-radius: 6px; cursor: move; touch-action: none; background: #000; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  .row label { width: 96px; flex: none; color: var(--muted); }
+  .row input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  .row output { width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+  .check { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--muted); cursor: pointer; }
+  .check input { accent-color: var(--accent); }
+  button, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; width: 100%; padding: 10px; }
+  button.primary:hover { background: var(--accent-2); }
+  button:disabled { opacity: .5; cursor: default; }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg button.on, #filters button.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+  #filters { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  #filters button { text-align: left; font-size: 13px; padding: 6px 8px; }
+  #out { max-width: 100%; max-height: 30vh; width: auto; height: auto; display: block; margin: 0 auto; border-radius: 6px; background: #000; }
+  #timeline { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  #timeline input { flex: 1; accent-color: var(--accent); }
+  .muted { color: var(--muted); font-size: 12px; }
+  progress { width: 100%; height: 8px; accent-color: var(--accent); }
+  select { flex: 1; min-width: 0; }
+  #error { color: #e5484d; }
+  .item { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; padding-top: 0; }
+  .item .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; background: #000; display: block; }
+  .item .name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  .item button { padding: 2px 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GIF Maker</h1>
+  <span class="hint">Runs in your browser. Your video never leaves your computer.</span>
+  <a class="gh" href="https://github.com/vekaev/gif-maker">GitHub ↗</a>
+</header>
+<main>
+  <section>
+    <div class="panel">
+      <div id="drop">Drop a video here, or click to choose a file<input id="file" type="file" accept="video/*" hidden></div>
+      <div id="stage">
+        <div id="frame"><canvas id="view"></canvas></div>
+        <div id="timeline">
+          <button id="play">⏸</button>
+          <input id="seek" type="range" min="0" max="1000" value="0">
+          <span id="clock" class="muted">0.0 s</span>
+        </div>
+        <p class="muted">Drag the frame to move it. Scroll or use the Size slider to zoom.</p>
+      </div>
+    </div>
+  </section>
+
+  <aside>
+    <div class="panel">
+      <h2>Preview</h2>
+      <canvas id="out"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Filter</h2>
+      <div id="filters"></div>
+      <div class="row"><label>Grain</label><input id="grain" type="range" min="0" max="30" value="0"><output></output></div>
+      <p class="muted">Grain barely compresses in a GIF: even a little makes the file 5–8× bigger.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Frame</h2>
+      <div class="seg" id="aspects">
+        <button data-a="1" class="on">1:1</button>
+        <button data-a="0.8">4:5</button>
+        <button data-a="0.5625">9:16</button>
+        <button data-a="1.7778">16:9</button>
+        <button data-a="0">Original</button>
+      </div>
+      <div class="row"><label>Size</label><input id="size" type="range" min="20" max="100" value="100"><output id="sizeV">100%</output></div>
+      <div class="row">
+        <button data-snap="left">← Left edge</button>
+        <button data-snap="center">Center</button>
+        <button data-snap="right">Right edge →</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Trim</h2>
+      <div class="row"><label>Start</label><input id="start" type="range" min="0" max="1000" value="0"><output id="startV">0.0 s</output></div>
+      <div class="row"><label>End</label><input id="end" type="range" min="0" max="1000" value="1000"><output id="endV">0.0 s</output></div>
+      <div class="row">
+        <button id="setStart">Start here</button>
+        <button id="setEnd">End here</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Light & color</h2>
+      <div class="row"><label>Exposure</label><input id="exposure" type="range" min="-100" max="150" value="0"><output></output></div>
+      <div class="row"><label>Shadows</label><input id="shadows" type="range" min="0" max="100" value="0"><output></output></div>
+      <div class="row"><label>Contrast</label><input id="contrast" type="range" min="-50" max="100" value="0"><output></output></div>
+      <div class="row"><label>Saturation</label><input id="saturation" type="range" min="0" max="200" value="100"><output></output></div>
+      <div class="row"><label>Warmth</label><input id="warmth" type="range" min="-50" max="50" value="0"><output></output></div>
+      <div class="row">
+        <button id="auto">✨ Auto</button>
+        <button id="reset">Reset</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Export</h2>
+      <div class="row"><label>Format</label>
+        <select id="format">
+          <option value="gif" selected>GIF</option>
+          <option value="mp4">MP4 (H.264)</option>
+          <option value="webm">WebM (VP9)</option>
+          <option value="sticker">Telegram sticker (WebM)</option>
+        </select>
+      </div>
+      <p class="muted" id="formatHint"></p>
+      <div class="row" id="widthRow"><label>Width</label><input id="width" type="range" min="240" max="1920" step="20" value="600"><output id="widthV">600</output></div>
+      <div class="row" id="fpsRow"><label>Frames/s</label><input id="fps" type="range" min="6" max="60" value="15"><output id="fpsV">15</output></div>
+      <label class="check" id="audioRow"><input id="audio" type="checkbox" checked> Silent sound track (so Telegram sends it as a video, not a GIF)</label>
+      <label class="check" id="ditherRow"><input id="dither" type="checkbox" checked> Smooth gradients (dithering)</label>
+      <p class="muted" id="estimate"></p>
+      <button class="primary" id="export" disabled>Make GIF</button>
+      <progress id="progress" value="0" max="1" hidden></progress>
+      <p class="muted" id="error" hidden></p>
+    </div>
+
+    <div class="panel" id="historyPanel" hidden>
+      <h2>Your exports</h2>
+      <div id="history"></div>
+    </div>
+  </aside>
+</main>
+
+<script type="module">
+const GIFENC = 'https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js';
+const { GIFEncoder, quantize } = await import(GIFENC);
+
+const $ = (id) => document.getElementById(id);
+const video = document.createElement('video');
+video.muted = true; video.playsInline = true; video.loop = true;
+const view = $('view'), vctx = view.getContext('2d');
+const out = $('out'), octx = out.getContext('2d');
+
+let fileName = 'video';
+let aspect = 1;           // width / height of the crop, 0 = source aspect
+let crop = { x: 0, y: 0, w: 0, h: 0 };   // in source pixels
+let range = { start: 0, end: 0 };
+let exporting = false;
+
+// ---------- filters ----------
+// mix: channel weights for the black-and-white conversion (a colour filter in front of the lens).
+// black/white: new black and white points; s: S-curve strength; fade: lifted blacks;
+// exp: extra exposure in stops; tint: RGB shift in the midtones.
+// Grain is left to the slider: per-frame noise barely compresses and multiplies the GIF size.
+const FILTERS = {
+  color:      { name: 'Color' },
+  mono:       { name: 'iPhone Mono', mix: [0.299, 0.587, 0.114] },
+  silvertone: { name: 'iPhone Silvertone', mix: [0.30, 0.59, 0.11], exp: 0.2, black: 0.02, s: 0.35, tint: [-5, 0, 7] },
+  noir:       { name: 'iPhone Noir', mix: [0.45, 0.50, 0.05], black: 0.08, white: 0.92, s: 0.7 },
+  leica:      { name: 'Leica Monochrom', mix: [0.33, 0.50, 0.17], black: 0.015, s: 0.2 },
+  leicaHC:    { name: 'Leica High Contrast', mix: [0.36, 0.52, 0.12], black: 0.06, white: 0.97, s: 0.55 },
+  acros:      { name: 'Fuji Acros', mix: [0.40, 0.52, 0.08], black: 0.035, s: 0.35 },
+};
+let filter = 'color';
+for (const [key, f] of Object.entries(FILTERS)) {
+  const b = document.createElement('button');
+  b.textContent = f.name; b.dataset.f = key;
+  if (key === filter) b.classList.add('on');
+  $('filters').append(b);
+}
+$('filters').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  setFilter(b.dataset.f);
+};
+function setFilter(key) {
+  filter = key;
+  $('filters').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.f === key));
+  rebuild();
+}
+
+// ---------- pixel pipeline (shared with the worker, so these must stay self-contained) ----------
+function adjust(d, P, seed) {
+  const { lut, mix, sat, warm, tr, tg, tb, grain } = P;
+  let s = seed | 0 || 1;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i] + warm, g = d[i + 1], b = d[i + 2] - warm;
+    r = r < 0 ? 0 : r > 255 ? 255 : r | 0;
+    b = b < 0 ? 0 : b > 255 ? 255 : b | 0;
+    if (mix) {
+      // grey level only; the tint lives in the palette (encode) or applyTint (preview)
+      let v = r * mix[0] + g * mix[1] + b * mix[2];
+      if (grain) {
+        s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+        v += ((s & 255) - 127.5) / 127.5 * grain;
+      }
+      v = lut[v < 0 ? 0 : v > 255 ? 255 : v | 0];
+      d[i] = v; d[i + 1] = v; d[i + 2] = v;
+    } else {
+      r = lut[r]; g = lut[g]; b = lut[b];
+      if (sat !== 1) {
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = l + (r - l) * sat; g = l + (g - l) * sat; b = l + (b - l) * sat;
+      }
+      d[i] = r; d[i + 1] = g; d[i + 2] = b;
+    }
+  }
+}
+
+function applyTint(d, P) {
+  if (!P.mix) return;
+  const { tr, tg, tb } = P;
+  for (let i = 0; i < d.length; i += 4) { const v = d[i]; d[i] = tr[v]; d[i + 1] = tg[v]; d[i + 2] = tb[v]; }
+}
+
+// Maps pixels to the clip-wide palette with an exact nearest-colour search (cached at 7 bits per
+// channel, far finer than gifenc's 5-6 bit lookup that causes contour lines), plus optional 8×8
+// Bayer dithering. Bayer's fixed pattern stays put from frame to frame, unlike error diffusion,
+// which crawls and makes the "swimming" blotches in animated GIFs.
+const BAYER = [0,32,8,40,2,34,10,42,48,16,56,24,50,18,58,26,12,44,4,36,14,46,6,38,60,28,52,20,62,30,54,22,
+  3,35,11,43,1,33,9,41,51,19,59,27,49,17,57,25,15,47,7,39,13,45,5,37,63,31,55,23,61,29,53,21];
+let mapCache = null, mapPalette = null;
+function paletteIndex(d, palette, w, dither) {
+  const n = palette.length;
+  if (mapPalette !== palette) { mapPalette = palette; mapCache = new Int16Array(1 << 21).fill(-1); }
+  const cache = mapCache, out = new Uint8Array(d.length / 4), spread = dither ? 14 : 0;
+  for (let p = 0, i = 0; i < d.length; p++, i += 4) {
+    const t = spread && (BAYER[((p / w | 0) & 7) * 8 + (p % w & 7)] / 64 - 0.5) * spread;
+    let r = d[i] + t, g = d[i + 1] + t, b = d[i + 2] + t;
+    r = r < 0 ? 0 : r > 255 ? 255 : r | 0;
+    g = g < 0 ? 0 : g > 255 ? 255 : g | 0;
+    b = b < 0 ? 0 : b > 255 ? 255 : b | 0;
+    const key = (r >> 1) << 14 | (g >> 1) << 7 | (b >> 1);
+    let c = cache[key];
+    if (c < 0) {
+      let best = Infinity;
+      for (let q = 0; q < n; q++) {
+        const e = palette[q], dr = r - e[0], dg = g - e[1], db = b - e[2], dist = 2 * dr * dr + 4 * dg * dg + 3 * db * db;
+        if (dist < best) { best = dist; c = q; }
+      }
+      cache[key] = c;
+    }
+    out[p] = c;
+  }
+  return out;
+}
+
+// Black-and-white frames use all 256 grey levels: the index is the grey value itself.
+function greyIndex(d) {
+  const out = new Uint8Array(d.length / 4);
+  for (let p = 0, i = 0; i < d.length; p++, i += 4) out[p] = d[i];
+  return out;
+}
+
+// GIF delays are whole centiseconds; frame i gets the difference of the rounded timestamps so the clip keeps its length.
+function frameDelay(i, fps) {
+  return (Math.round((i + 1) * 100 / fps) - Math.round(i * 100 / fps)) * 10;
+}
+
+function encodeFrame(gif, d, cfg, i) {
+  adjust(d, cfg.P, i * 7919 + 1);
+  const index = cfg.P.mix ? greyIndex(d) : paletteIndex(d, cfg.palette, cfg.w, cfg.dither);
+  const delay = frameDelay(i, cfg.fps);
+  gif.writeFrame(index, cfg.w, cfg.h, i === 0 ? { palette: cfg.palette, delay } : { delay });
+}
+
+// A page opened from disk has a null origin, where module workers fail to load, so the worker is a
+// classic script with gifenc's source inlined (its ESM export list rewritten to self.gifenc).
+let workerSrcPromise;
+function workerSource() {
+  return workerSrcPromise ||= fetch(GIFENC).then((r) => r.text()).then((lib) =>
+    lib.replace(/export\s*\{([^}]*)\};?/, (_, list) => 'self.gifenc={' + list.split(',')
+      .map((p) => { const [a, b] = p.trim().split(/\s+as\s+/); return (b || a) + ':' + a; }).join(',') + '};')
+    + workerBody);
+}
+
+const workerBody = `
+const { GIFEncoder } = self.gifenc;
+const BAYER = ${JSON.stringify(BAYER)};
+let mapCache = null, mapPalette = null;
+${adjust}
+${paletteIndex}
+${greyIndex}
+${frameDelay}
+${encodeFrame}
+let gif, cfg;
+onmessage = ({ data: m }) => {
+  if (m.type === 'start') { cfg = m; gif = GIFEncoder(); return; }
+  if (m.type === 'frame') { encodeFrame(gif, new Uint8ClampedArray(m.buffer), cfg, m.index); postMessage({ type: 'frame' }); return; }
+  if (m.type === 'finish') { gif.finish(); const bytes = gif.bytes(); postMessage({ type: 'gif', bytes }, [bytes.buffer]); }
+};`;
+
+// ---------- loading ----------
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+$('file').onchange = (e) => e.target.files[0] && load(e.target.files[0]);
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); e.dataTransfer.files[0] && load(e.dataTransfer.files[0]); };
+document.body.ondragover = (e) => e.preventDefault();
+document.body.ondrop = (e) => { e.preventDefault(); e.dataTransfer.files[0] && load(e.dataTransfer.files[0]); };
+
+function load(file) {
+  fileName = file.name.replace(/\.[^.]+$/, '');
+  loadSrc(URL.createObjectURL(file));
+}
+
+function loadSrc(src) {
+  video.src = src;
+  video.onloadedmetadata = () => {
+    const maxW = Math.min(1000, video.videoWidth);
+    view.width = maxW;
+    view.height = Math.round(maxW * video.videoHeight / video.videoWidth);
+    range = { start: 0, end: video.duration };
+    $('start').value = 0; $('end').value = 1000;
+    drop.style.display = 'none';
+    $('stage').style.display = 'flex';
+    $('export').disabled = false;
+    setAspect(aspect);
+    updateRangeLabels();
+    video.play();
+    $('play').textContent = '⏸';
+  };
+}
+window.gifMakerLoad = loadSrc;
+window.gifMakerVideo = video;
+
+// ---------- crop ----------
+function maxCrop() {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const a = aspect || vw / vh;
+  return vw / vh > a ? { w: vh * a, h: vh } : { w: vw, h: vw / a };
+}
+
+function setAspect(a) {
+  aspect = a;
+  const cx = crop.w ? crop.x + crop.w / 2 : video.videoWidth / 2;
+  const cy = crop.h ? crop.y + crop.h / 2 : video.videoHeight / 2;
+  resize(+$('size').value / 100, cx, cy);
+}
+
+function resize(scale, cx, cy) {
+  const m = maxCrop();
+  crop.w = m.w * scale; crop.h = m.h * scale;
+  crop.x = cx - crop.w / 2; crop.y = cy - crop.h / 2;
+  clampCrop();
+  $('sizeV').textContent = Math.round(scale * 100) + '%';
+  sizeOutput();
+}
+
+function clampCrop() {
+  crop.x = Math.max(0, Math.min(video.videoWidth - crop.w, crop.x));
+  crop.y = Math.max(0, Math.min(video.videoHeight - crop.h, crop.y));
+}
+
+// Never upscale: the output is at most as big as the cropped source.
+// A Telegram sticker must have its longer side at exactly 512 px.
+function outSize() {
+  if ($('format').value === 'sticker') {
+    const k = 512 / Math.max(crop.w, crop.h);
+    return { w: Math.round(crop.w * k / 2) * 2, h: Math.round(crop.h * k / 2) * 2 };
+  }
+  const w = Math.min(+$('width').value, Math.floor(crop.w / 2) * 2);
+  return { w, h: Math.round(w * crop.h / crop.w / 2) * 2 };
+}
+
+function sizeOutput() {
+  const s = outSize();
+  out.width = Math.min(s.w, 360); out.height = Math.round(out.width * s.h / s.w);
+  estimate();
+}
+
+$('aspects').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  $('aspects').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  setAspect(+b.dataset.a);
+};
+$('size').oninput = () => resize(+$('size').value / 100, crop.x + crop.w / 2, crop.y + crop.h / 2);
+document.querySelectorAll('[data-snap]').forEach((b) => b.onclick = () => {
+  const s = b.dataset.snap;
+  crop.x = s === 'left' ? 0 : s === 'right' ? video.videoWidth - crop.w : (video.videoWidth - crop.w) / 2;
+  clampCrop();
+});
+
+let drag = null;
+const toSrc = (e) => {
+  const r = view.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * video.videoWidth, y: (e.clientY - r.top) / r.height * video.videoHeight };
+};
+view.onpointerdown = (e) => { view.setPointerCapture(e.pointerId); const p = toSrc(e); drag = { px: p.x, py: p.y, x: crop.x, y: crop.y }; };
+view.onpointermove = (e) => {
+  if (!drag) return;
+  const p = toSrc(e);
+  crop.x = drag.x + p.x - drag.px; crop.y = drag.y + p.y - drag.py;
+  clampCrop();
+};
+view.onpointerup = () => drag = null;
+view.onwheel = (e) => {
+  e.preventDefault();
+  const v = Math.max(20, Math.min(100, +$('size').value - Math.sign(e.deltaY) * 3));
+  $('size').value = v; $('size').oninput();
+};
+
+// ---------- trim ----------
+const fmt = (t) => t.toFixed(1) + ' s';
+function updateRangeLabels() {
+  $('startV').textContent = fmt(range.start);
+  $('endV').textContent = fmt(range.end);
+  estimate();
+}
+$('start').oninput = () => {
+  range.start = Math.min(+$('start').value / 1000 * video.duration, range.end - 0.1);
+  video.currentTime = range.start; updateRangeLabels();
+};
+$('end').oninput = () => {
+  range.end = Math.max(+$('end').value / 1000 * video.duration, range.start + 0.1);
+  video.currentTime = Math.max(range.start, range.end - 0.5); updateRangeLabels();
+};
+$('setStart').onclick = () => { range.start = Math.min(video.currentTime, range.end - 0.1); $('start').value = range.start / video.duration * 1000; updateRangeLabels(); };
+$('setEnd').onclick = () => { range.end = Math.max(video.currentTime, range.start + 0.1); $('end').value = range.end / video.duration * 1000; updateRangeLabels(); };
+$('play').onclick = () => { if (video.paused) { video.play(); $('play').textContent = '⏸'; } else { video.pause(); $('play').textContent = '▶︎'; } };
+$('seek').oninput = () => { video.currentTime = +$('seek').value / 1000 * video.duration; };
+
+// ---------- colour ----------
+const colorIds = ['exposure', 'shadows', 'contrast', 'saturation', 'warmth', 'grain'];
+const defaults = { exposure: 0, shadows: 0, contrast: 0, saturation: 100, warmth: 0, grain: 0 };
+let P, version = 0;
+
+function rebuild() {
+  const p = Object.fromEntries(colorIds.map((id) => [id, +$(id).value]));
+  const f = FILTERS[filter];
+  const gain = Math.pow(2, p.exposure / 100 + (f.exp || 0)), gamma = 1 / (1 + p.shadows / 100), c = 1 + p.contrast / 100;
+  const black = f.black || 0, white = f.white || 1;
+  const lut = new Uint8ClampedArray(256), tr = new Uint8ClampedArray(256), tg = new Uint8ClampedArray(256), tb = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) {
+    let v = Math.min(1, (i / 255) * gain);
+    v = Math.pow(v, gamma);
+    v = (v - 0.5) * c + 0.5;
+    v = Math.max(0, Math.min(1, (v - black) / (white - black)));
+    if (f.s) v += f.s * (v * v * (3 - 2 * v) - v);
+    if (f.fade) v = f.fade + v * (1 - f.fade);
+    lut[i] = v * 255;
+    const mid = 4 * (i / 255) * (1 - i / 255), t = f.tint || [0, 0, 0];
+    tr[i] = i + t[0] * mid; tg[i] = i + t[1] * mid; tb[i] = i + t[2] * mid;
+  }
+  P = { lut, mix: f.mix || null, sat: p.saturation / 100, warm: p.warmth * 0.6, tr, tg, tb, grain: p.grain * 0.8 };
+  version++;
+  colorIds.forEach((id) => $(id).nextElementSibling.textContent = $(id).value);
+}
+colorIds.forEach((id) => $(id).oninput = rebuild);
+$('reset').onclick = () => { colorIds.forEach((id) => $(id).value = defaults[id]); setFilter('color'); };
+
+// Auto: lift exposure so highlights reach ~95%, then open shadows so the median sits near the middle.
+$('auto').onclick = () => {
+  octx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
+  const raw = octx.getImageData(0, 0, out.width, out.height).data;
+  const ls = [];
+  for (let i = 0; i < raw.length; i += 16) ls.push((0.299 * raw[i] + 0.587 * raw[i + 1] + 0.114 * raw[i + 2]) / 255);
+  ls.sort((a, b) => a - b);
+  const p99 = Math.max(0.05, ls[Math.floor(ls.length * 0.99)]);
+  const e = Math.max(-1, Math.min(1.5, Math.log2(0.95 / p99)));
+  const med = Math.min(0.95, Math.max(0.02, ls[Math.floor(ls.length / 2)] * Math.pow(2, e)));
+  const s = Math.max(0, Math.min(1, Math.log(med) / Math.log(0.45) - 1));
+  $('exposure').value = Math.round(e * 100);
+  $('shadows').value = Math.round(s * 100);
+  $('contrast').value = 12;
+  if (filter === 'color') $('saturation').value = 110;
+  rebuild();
+};
+
+// ---------- render loop ----------
+// Redraw only when the frame, the crop or the settings changed, so a paused video costs nothing.
+let lastKey = '';
+function draw() {
+  if (video.readyState >= 2 && !exporting && !video.seeking) {
+    if (video.currentTime >= range.end || video.currentTime < range.start - 0.05) video.currentTime = range.start;
+    const key = `${video.currentTime}|${crop.x}|${crop.y}|${crop.w}|${out.width}|${version}`;
+    if (key !== lastKey) {
+      lastKey = key;
+      const k = view.width / video.videoWidth;
+      vctx.drawImage(video, 0, 0, view.width, view.height);
+      vctx.fillStyle = 'rgba(0,0,0,.62)';
+      vctx.beginPath();
+      vctx.rect(0, 0, view.width, view.height);
+      vctx.rect(crop.x * k, crop.y * k, crop.w * k, crop.h * k);
+      vctx.fill('evenodd');
+      vctx.strokeStyle = '#fff'; vctx.lineWidth = 2;
+      vctx.strokeRect(crop.x * k + 1, crop.y * k + 1, crop.w * k - 2, crop.h * k - 2);
+
+      octx.imageSmoothingQuality = 'high';
+      octx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
+      const img = octx.getImageData(0, 0, out.width, out.height);
+      adjust(img.data, P, (Math.random() * 2 ** 31) | 0);
+      applyTint(img.data, P);
+      octx.putImageData(img, 0, 0);
+
+      $('seek').value = video.currentTime / video.duration * 1000;
+      $('clock').textContent = fmt(video.currentTime);
+    }
+  }
+  requestAnimationFrame(draw);
+}
+
+// ---------- export ----------
+const MP4MUX = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.mjs';
+const WEBMMUX = 'https://cdn.jsdelivr.net/npm/webm-muxer@5.1.4/build/webm-muxer.mjs';
+const FORMATS = {
+  gif:     { label: 'GIF', ext: 'gif', type: 'image/gif',
+             hint: 'Plays everywhere. Up to 256 colours, so files are big; Telegram turns it into a silent video.' },
+  mp4:     { label: 'MP4', ext: 'mp4', type: 'video/mp4',
+             hint: 'Full colour, small file, plays everywhere. With the silent sound track Telegram sends it as a video; without it, as a GIF.' },
+  webm:    { label: 'WebM', ext: 'webm', type: 'video/webm',
+             hint: 'Full colour, small file, VP9. Good for the web and Discord.' },
+  sticker: { label: 'sticker', ext: 'webm', type: 'video/webm',
+             hint: 'Telegram video sticker: WebM VP9, 512 px, up to 3 s and 256 KB, no sound. Send it to @Stickers (/newvideo).' },
+};
+const STICKER_MAX_S = 3, STICKER_MAX_BYTES = 256 * 1024;
+
+function exportPlan() {
+  const fmt = $('format').value;
+  const s = outSize();
+  let fps = +$('fps').value, start = range.start, end = range.end;
+  if (fmt === 'gif') fps = Math.min(fps, 50);          // browsers slow down GIF frames shorter than 20 ms
+  if (fmt === 'sticker') { fps = Math.min(fps, 30); end = Math.min(end, start + STICKER_MAX_S); }
+  return { fmt, s, fps, start, end, n: Math.max(1, Math.round((end - start) * fps)) };
+}
+
+function estimate() {
+  if (!video.duration) return;
+  const p = exportPlan();
+  let text = `${p.s.w}×${p.s.h}, ${p.n} frames at ${p.fps}/s, ${(p.end - p.start).toFixed(1)} s`;
+  if (p.fmt !== 'sticker' && p.s.w < +$('width').value) text += ' (the full size of the cropped frame; no upscaling)';
+  if (p.fmt === 'sticker' && range.end - range.start > STICKER_MAX_S) text += ' (stickers are cut to the first 3 s)';
+  if (p.fmt === 'gif' && +$('fps').value > 50) text += ' (GIF tops out at 50 frames/s)';
+  $('estimate').textContent = text;
+}
+
+function updateFormat() {
+  const fmt = $('format').value;
+  $('formatHint').textContent = FORMATS[fmt].hint;
+  $('ditherRow').hidden = fmt !== 'gif';
+  $('widthRow').hidden = fmt === 'sticker';
+  $('audioRow').hidden = fmt !== 'mp4' && fmt !== 'webm';
+  $('export').textContent = fmt === 'sticker' ? 'Make sticker' : `Make ${FORMATS[fmt].label}`;
+  if (video.duration) sizeOutput();
+}
+$('format').onchange = updateFormat;
+$('width').oninput = () => { $('widthV').textContent = $('width').value; sizeOutput(); };
+$('fps').oninput = () => { $('fpsV').textContent = $('fps').value; estimate(); };
+
+function seekTo(t) {
+  return new Promise((resolve) => {
+    const done = () => { clearTimeout(timer); video.removeEventListener('seeked', done); resolve(); };
+    const timer = setTimeout(done, 3000);
+    video.addEventListener('seeked', done);
+    video.currentTime = t;
+  });
+}
+
+async function makeWorker() {
+  try {
+    return new Worker(URL.createObjectURL(new Blob([await workerSource()], { type: 'text/javascript' })));
+  } catch (e) { console.warn('no worker, encoding on the page', e); return null; }
+}
+
+// Frames are grabbed here (seek + draw needs the video element) and encoded in a worker,
+// at most three in flight so memory stays flat on long clips.
+function encodeInWorker(worker, cfg, n, grab, onProgress) {
+  return new Promise(async (resolve, reject) => {
+    let done = 0, sent = 0;
+    const waiters = [];
+    worker.onerror = (e) => { e.preventDefault(); reject(new Error(e.message || 'worker failed')); waiters.splice(0).forEach((w) => w()); };
+    worker.onmessage = ({ data }) => {
+      if (data.type === 'frame') { done++; onProgress(done / n); waiters.shift()?.(); }
+      else if (data.type === 'gif') resolve(data.bytes);
+    };
+    worker.postMessage({ type: 'start', ...cfg });
+    try {
+      for (let i = 0; i < n; i++) {
+        const d = await grab(i);
+        worker.postMessage({ type: 'frame', buffer: d.buffer, index: i }, [d.buffer]);
+        sent++;
+        if (sent - done >= 3) await new Promise((r) => waiters.push(r));
+      }
+      worker.postMessage({ type: 'finish' });
+    } catch (e) { reject(e); }
+  });
+}
+
+async function encodeHere(cfg, n, grab, onProgress) {
+  const gif = GIFEncoder();
+  for (let i = 0; i < n; i++) {
+    encodeFrame(gif, await grab(i), cfg, i);
+    onProgress((i + 1) / n);
+    await new Promise((r) => setTimeout(r));
+  }
+  gif.finish();
+  return gif.bytes();
+}
+
+async function encodeGif(plan, grab, onProgress) {
+  const { s, fps, n, start } = plan;
+  // One palette for the whole clip, so colours don't jump between frames.
+  let palette;
+  if (P.mix) {
+    palette = Array.from({ length: 256 }, (_, v) => [P.tr[v], P.tg[v], P.tb[v]]);
+  } else {
+    // sample frames at a smaller size: the colour statistics are the same and it keeps the page responsive
+    const sw = Math.min(s.w, 320), sh = Math.round(sw * s.h / s.w);
+    const small = document.createElement('canvas'); small.width = sw; small.height = sh;
+    const sctx = small.getContext('2d', { willReadFrequently: true });
+    const k = Math.min(8, n), frame = sw * sh * 4, all = new Uint8ClampedArray(frame * k);
+    for (let j = 0; j < k; j++) {
+      await seekTo(start + Math.round(j * (n - 1) / Math.max(1, k - 1)) / fps);
+      sctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, sw, sh);
+      const d = sctx.getImageData(0, 0, sw, sh).data;
+      adjust(d, P, j + 1);
+      all.set(d, j * frame);
+    }
+    palette = quantize(all, 256);
+  }
+  const cfg = { w: s.w, h: s.h, fps, dither: $('dither').checked, P, palette };
+  let bytes;
+  const worker = await makeWorker();
+  window.gifMakerUsedWorker = !!worker;
+  if (worker) {
+    try { bytes = await encodeInWorker(worker, cfg, n, grab, onProgress); }
+    catch (e) { console.warn('worker encode failed, falling back to the page', e); }
+    worker.terminate();
+  }
+  if (!bytes) { onProgress(0); bytes = await encodeHere(cfg, n, grab, onProgress); }
+  return bytes;
+}
+
+// The first codec string the browser can encode at this size wins.
+async function pickCodec(candidates, base) {
+  if (typeof VideoEncoder === 'undefined') throw new Error('This browser can’t encode video. Try Chrome, Edge or Safari 17+.');
+  for (const codec of candidates) {
+    const config = { ...base, codec };
+    try { if ((await VideoEncoder.isConfigSupported(config)).supported) return config; } catch {}
+  }
+  throw new Error('This browser can’t encode this format at this size. Try a smaller width or another format.');
+}
+
+// A track of silence the length of the clip (AAC for MP4, Opus for WebM). Telegram sends a video
+// without any sound track as a GIF, so this makes it arrive as a regular video.
+async function encodeSilence(codec, seconds) {
+  if (typeof AudioEncoder === 'undefined') return null;
+  const config = { codec, sampleRate: 48000, numberOfChannels: 1, bitrate: 32000 };
+  try { if (!(await AudioEncoder.isConfigSupported(config)).supported) return null; } catch { return null; }
+  const chunks = [];
+  let failure = null;
+  const encoder = new AudioEncoder({ output: (chunk, meta) => chunks.push({ chunk, meta }), error: (e) => failure = e });
+  encoder.configure(config);
+  const block = 960, total = Math.ceil(seconds * 48000);
+  for (let t = 0; t < total; t += block) {
+    const data = new AudioData({ format: 'f32', sampleRate: 48000, numberOfFrames: block, numberOfChannels: 1, timestamp: Math.round(t / 48 * 1000), data: new Float32Array(block) });
+    encoder.encode(data);
+    data.close();
+  }
+  await encoder.flush();
+  encoder.close();
+  return failure ? null : chunks;
+}
+
+// WebCodecs encodes the frames, mp4-muxer / webm-muxer wrap them in a file.
+async function encodeVideo(plan, grab, onProgress, bitrate, withSound) {
+  const { fmt, s, fps, n } = plan;
+  const mp4 = fmt === 'mp4';
+  const { Muxer, ArrayBufferTarget } = await import(mp4 ? MP4MUX : WEBMMUX);
+  const base = { width: s.w, height: s.h, bitrate, framerate: fps, latencyMode: 'quality' };
+  const config = mp4
+    ? await pickCodec(['avc1.640033', 'avc1.64002A', 'avc1.640028', 'avc1.4D0028', 'avc1.42E01F'], { ...base, avc: { format: 'avc' } })
+    : await pickCodec(['vp09.00.41.08', 'vp09.00.31.08', 'vp09.00.10.08'], base);
+  const sound = withSound ? await encodeSilence(mp4 ? 'mp4a.40.2' : 'opus', n / fps) : null;
+  const audio = sound && (mp4 ? { codec: 'aac', sampleRate: 48000, numberOfChannels: 1 } : { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 1 });
+  const target = new ArrayBufferTarget();
+  const muxer = new Muxer(mp4
+    ? { target, video: { codec: 'avc', width: s.w, height: s.h, frameRate: fps }, ...(audio && { audio }), fastStart: 'in-memory', firstTimestampBehavior: 'offset' }
+    : { target, video: { codec: 'V_VP9', width: s.w, height: s.h, frameRate: fps }, ...(audio && { audio }), firstTimestampBehavior: 'offset' });
+  // interleave: before each video chunk, hand over the sound up to its timestamp
+  let a = 0;
+  const flushSound = (until) => { while (sound && a < sound.length && sound[a].chunk.timestamp <= until) { muxer.addAudioChunk(sound[a].chunk, sound[a].meta); a++; } };
+  let failure = null;
+  const encoder = new VideoEncoder({ output: (chunk, meta) => { flushSound(chunk.timestamp); muxer.addVideoChunk(chunk, meta); }, error: (e) => failure = e });
+  encoder.configure(config);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = s.w; canvas.height = s.h;
+  const ctx = canvas.getContext('2d');
+  const step = 1e6 / fps;
+  for (let i = 0; i < n; i++) {
+    if (failure) throw failure;
+    const d = await grab(i);
+    adjust(d, P, i * 7919 + 1);
+    applyTint(d, P);
+    ctx.putImageData(new ImageData(d, s.w, s.h), 0, 0);
+    const frame = new VideoFrame(canvas, { timestamp: Math.round(i * step), duration: Math.round(step) });
+    encoder.encode(frame, { keyFrame: i % (fps * 2) === 0 });
+    frame.close();
+    while (encoder.encodeQueueSize > 4) await new Promise((r) => setTimeout(r, 5));
+    onProgress((i + 1) / n);
+  }
+  await encoder.flush();
+  encoder.close();
+  if (failure) throw failure;
+  flushSound(Infinity);
+  muxer.finalize();
+  return new Uint8Array(target.buffer);
+}
+
+$('export').onclick = async () => {
+  exporting = true;
+  video.pause(); $('play').textContent = '▶︎';
+  $('export').disabled = true;
+  $('error').hidden = true;
+  const prog = $('progress'); prog.hidden = false; prog.value = 0;
+
+  const plan = exportPlan();
+  const { fmt, s, fps, start } = plan;
+  const canvas = document.createElement('canvas');
+  canvas.width = s.w; canvas.height = s.h;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  const grab = async (i) => {
+    await seekTo(start + i / fps);
+    ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, s.w, s.h);
+    return ctx.getImageData(0, 0, s.w, s.h).data;
+  };
+  const onProgress = (v) => prog.value = v;
+  const t0 = performance.now();
+
+  try {
+    let bytes;
+    if (fmt === 'gif') {
+      bytes = await encodeGif(plan, grab, onProgress);
+    } else if (fmt === 'sticker') {
+      // aim under Telegram's 256 KB and step the bitrate down until it fits
+      const seconds = plan.n / fps;
+      let bitrate = Math.floor(STICKER_MAX_BYTES * 8 * 0.85 / seconds);
+      for (let attempt = 0; attempt < 4; attempt++) {
+        bytes = await encodeVideo(plan, grab, onProgress, bitrate);
+        if (bytes.length <= STICKER_MAX_BYTES) break;
+        bitrate = Math.floor(bitrate * STICKER_MAX_BYTES / bytes.length * 0.85);
+      }
+    } else {
+      // generous bitrate (about 0.2 bits per pixel per frame): the point is quality, the files stay small anyway
+      bytes = await encodeVideo(plan, grab, onProgress, Math.round(Math.max(2e6, s.w * s.h * fps * 0.2)), $('audio').checked);
+    }
+    const suffix = filter === 'color' ? '' : '-' + filter;
+    const name = `${fileName}${suffix}${fmt === 'sticker' ? '-sticker' : ''}-${s.w}x${s.h}.${FORMATS[fmt].ext}`;
+    await addExport({ id: Date.now(), name, fmt, blob: new Blob([bytes], { type: FORMATS[fmt].type }), seconds: (performance.now() - t0) / 1000 });
+  } catch (e) {
+    console.error(e);
+    $('error').textContent = e.message || String(e);
+    $('error').hidden = false;
+  }
+  prog.hidden = true;
+  $('export').disabled = false;
+  exporting = false;
+  lastKey = '';
+  video.currentTime = range.start;
+};
+
+// ---------- past exports ----------
+// Kept in this browser (IndexedDB) so they survive a reload; nothing leaves the computer.
+const MAX_EXPORTS = 30;
+const dbReady = new Promise((resolve) => {
+  try {
+    const req = indexedDB.open('gif-maker', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('exports', { keyPath: 'id' });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  } catch { resolve(null); }
+});
+async function store(mode, fn) {
+  const db = await dbReady;
+  if (!db) return undefined;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction('exports', mode), req = fn(tx.objectStore('exports'));
+      tx.oncomplete = () => resolve(req?.result);
+      tx.onerror = tx.onabort = () => resolve(undefined);
+    } catch { resolve(undefined); }
+  });
+}
+
+let exportsList = [];
+async function addExport(item) {
+  exportsList.unshift(item);
+  await store('readwrite', (st) => st.put(item));
+  for (const old of exportsList.splice(MAX_EXPORTS)) await store('readwrite', (st) => st.delete(old.id));
+  renderExports();
+}
+async function removeExport(id) {
+  exportsList = exportsList.filter((x) => x.id !== id);
+  await store('readwrite', (st) => st.delete(id));
+  renderExports();
+}
+
+const urls = new Map();
+const urlFor = (item) => urls.get(item.id) || urls.set(item.id, URL.createObjectURL(item.blob)).get(item.id);
+const sizeText = (b) => b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1048576).toFixed(1)} MB`;
+
+function renderExports() {
+  const list = $('history');
+  list.replaceChildren(...exportsList.map((item) => {
+    const row = document.createElement('div');
+    row.className = 'item';
+    const url = urlFor(item);
+    const thumb = document.createElement(item.fmt === 'gif' ? 'img' : 'video');
+    thumb.className = 'thumb'; thumb.src = url;
+    if (item.fmt !== 'gif') Object.assign(thumb, { muted: true, loop: true, autoplay: true, playsInline: true });
+    const meta = document.createElement('div');
+    const when = new Date(item.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    meta.innerHTML = `<div class="name"></div><div class="muted">${FORMATS[item.fmt].label} · ${sizeText(item.blob.size)} · ${when}</div>`;
+    meta.firstChild.textContent = item.name; meta.firstChild.title = item.name;
+    const link = document.createElement('a');
+    link.href = url; link.download = item.name; link.textContent = '⬇ Save';
+    const del = document.createElement('button');
+    del.textContent = '✕'; del.title = 'Remove';
+    del.onclick = () => { URL.revokeObjectURL(url); urls.delete(item.id); removeExport(item.id); };
+    row.append(thumb, meta, link, del);
+    return row;
+  }));
+  $('historyPanel').hidden = exportsList.length === 0;
+}
+
+store('readonly', (st) => st.getAll()).then((items) => {
+  if (!items?.length) return;
+  exportsList = items.sort((a, b) => b.id - a.id).concat(exportsList.filter((x) => !items.some((y) => y.id === x.id)));
+  renderExports();
+});
+
+updateFormat();
+
+rebuild();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
