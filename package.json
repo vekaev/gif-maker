@@ -1,0 +1,20 @@
+{
+  "name": "gif-maker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Crop, trim and tone a video into a GIF, MP4, WebM or Telegram sticker, right in the browser.",
+  "type": "module",
+  "scripts": {
+    "start": "http-server . -p 4173 -c-1 --silent",
+    "check": "node scripts/check.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test": "npm run check && npm run test:e2e",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "http-server": "^14.1.1",
+    "husky": "^9.1.7"
+  }
+}

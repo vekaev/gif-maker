@@ -1,0 +1,2 @@
+echo "▶ pre-commit: quick checks"
+npm run check

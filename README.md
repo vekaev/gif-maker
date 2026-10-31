@@ -9,6 +9,7 @@
 Turn a video into a sharp GIF, MP4, WebM or Telegram sticker right in your browser: crop it to 1:1,<br>
 cut the moment you want, lift a dark clip, give it a black-and-white film look. Nothing is uploaded.
 
+[![CI](https://img.shields.io/github/actions/workflow/status/vekaev/gif-maker/ci.yml?branch=main&style=flat-square&label=tests&logo=playwright&logoColor=white)](https://github.com/vekaev/gif-maker/actions/workflows/ci.yml)
 [![Runs in the browser](https://img.shields.io/badge/runs%20in-the%20browser-4f8cff?style=flat-square&logo=googlechrome&logoColor=white)](https://vekaev.github.io/gif-maker/)
 [![One HTML file](https://img.shields.io/badge/one%20HTML%20file-no%20build-3a3a3a?style=flat-square&logo=html5&logoColor=white)](index.html)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square)](LICENSE)
@@ -154,6 +155,39 @@ One `index.html`, plain JavaScript, no framework.
 Your video never leaves your computer: it's read, processed and encoded on the page. The only network
 requests load the three libraries above from jsDelivr. Exports are kept in this browser's storage until
 you remove them or clear site data. No analytics, no cookies, no accounts.
+
+## Development
+
+The app itself needs nothing installed. The tests need Node 22+ and Google Chrome.
+
+```bash
+npm install                # Playwright, http-server, husky (and the git hooks)
+npm start                  # http://localhost:4173
+npm test                   # quick checks + the end-to-end suite
+npm run test:e2e:ui        # the suite in Playwright's UI
+```
+
+The **end-to-end suite** (`e2e/`, Playwright, Google Chrome) drives the real page with small generated
+clips in `e2e/fixtures` and checks the actual output files, not just the UI:
+
+- **Crop:** every aspect, snapping to the edges (by the colours that end up in the frame), dragging,
+  zooming, no upscaling, the dimmed outside.
+- **Trim:** the sliders, **Start here / End here**, and that the preview loops inside the clip.
+- **Light and colour:** each slider changes the right pixels, **Auto** lifts a dark clip, **Reset**. All
+  six B&W looks come out grey and different from each other, and grain adds noise.
+- **GIF:** frame count, size, exact length, that the right moments are in it (a fade's brightness frame by
+  frame, with no steps), colour settings baked in, all-grey B&W, dithering, the 50 frames/s cap, encoding
+  in a worker with no long main-thread tasks, and opening the page straight from disk.
+- **MP4 / WebM / sticker:** codec, size, length and the sound track, read from the files themselves. Also
+  that B&W survives into the video, and that the sticker stays within Telegram's 512 px, 3 s and 256 KB.
+- **Exports list:** order, Save links, surviving a reload, removing.
+- **Layout:** fits the window with no page scroll, and works at phone width.
+
+**Git hooks** (husky): `pre-commit` runs the quick checks (the page's script parses, the README's files
+exist, CDN versions are pinned); `pre-push` runs the whole end-to-end suite.
+
+**CI/CD** (GitHub Actions): every push and pull request runs the same checks and suite in Chrome on Linux.
+On `main`, the site deploys to GitHub Pages only after everything passed.
 
 ## Status
 

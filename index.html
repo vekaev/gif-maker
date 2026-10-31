@@ -239,6 +239,11 @@ function adjust(d, P, seed) {
       v = lut[v < 0 ? 0 : v > 255 ? 255 : v | 0];
       d[i] = v; d[i + 1] = v; d[i + 2] = v;
     } else {
+      if (grain) {
+        s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+        const n = ((s & 255) - 127.5) / 127.5 * grain;
+        r = Math.max(0, Math.min(255, r + n)) | 0; g = Math.max(0, Math.min(255, g + n)) | 0; b = Math.max(0, Math.min(255, b + n)) | 0;
+      }
       r = lut[r]; g = lut[g]; b = lut[b];
       if (sat !== 1) {
         const l = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -364,8 +369,13 @@ function loadSrc(src) {
     $('play').textContent = '⏸';
   };
 }
-window.gifMakerLoad = loadSrc;
-window.gifMakerVideo = video;
+// A small window into the app for the end-to-end tests (and the curious).
+window.gifMaker = {
+  load: loadSrc,
+  video,
+  usedWorker: null,
+  state: () => ({ crop: { ...crop }, range: { ...range }, aspect, filter, out: outSize(), view: { w: view.width, h: view.height }, source: { w: video.videoWidth, h: video.videoHeight } }),
+};
 
 // ---------- crop ----------
 function maxCrop() {
@@ -647,11 +657,12 @@ async function encodeGif(plan, grab, onProgress) {
   if (P.mix) {
     palette = Array.from({ length: 256 }, (_, v) => [P.tr[v], P.tg[v], P.tb[v]]);
   } else {
-    // sample frames at a smaller size: the colour statistics are the same and it keeps the page responsive
-    const sw = Math.min(s.w, 320), sh = Math.round(sw * s.h / s.w);
+    // Sample up to 32 frames across the clip at a small size: enough that a fade or a change of light
+    // has palette colours close together (dithering then blends between them), and still quick.
+    const sw = Math.min(s.w, 160), sh = Math.max(1, Math.round(sw * s.h / s.w));
     const small = document.createElement('canvas'); small.width = sw; small.height = sh;
     const sctx = small.getContext('2d', { willReadFrequently: true });
-    const k = Math.min(8, n), frame = sw * sh * 4, all = new Uint8ClampedArray(frame * k);
+    const k = Math.min(32, n), frame = sw * sh * 4, all = new Uint8ClampedArray(frame * k);
     for (let j = 0; j < k; j++) {
       await seekTo(start + Math.round(j * (n - 1) / Math.max(1, k - 1)) / fps);
       sctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, sw, sh);
@@ -664,7 +675,7 @@ async function encodeGif(plan, grab, onProgress) {
   const cfg = { w: s.w, h: s.h, fps, dither: $('dither').checked, P, palette };
   let bytes;
   const worker = await makeWorker();
-  window.gifMakerUsedWorker = !!worker;
+  window.gifMaker.usedWorker = !!worker;
   if (worker) {
     try { bytes = await encodeInWorker(worker, cfg, n, grab, onProgress); }
     catch (e) { console.warn('worker encode failed, falling back to the page', e); }

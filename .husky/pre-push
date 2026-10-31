@@ -1,0 +1,2 @@
+echo "▶ pre-push: end-to-end tests in Chrome"
+npm run test:e2e
