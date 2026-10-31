@@ -101,7 +101,7 @@ test('Telegram sticker: 512 px, at most 3 s and 256 KB, no sound', async ({ page
   await page.getByRole('button', { name: 'Original' }).click()
   await setSlider(page, 'fps', 60)
   await expect(page.locator('#estimate')).toContainText('512×288, 90 frames at 30/s, 3.0 s')
-  await expect(page.locator('#estimate')).toContainText('cut to the first 3 s')
+  await expect(page.locator('#estimate .warn')).toContainText('The clip plays 4.0 s, but Telegram stickers stop at 3 s')
   const file = await exportFile(page)
   expect(file.name).toBe('bars-sticker-512x288.webm')
   expect(file.size).toBeLessThanOrEqual(256 * 1024)

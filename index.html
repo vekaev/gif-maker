@@ -60,8 +60,27 @@
   #filters { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
   #filters button { text-align: left; font-size: 13px; padding: 6px 8px; }
   #out { max-width: 100%; max-height: 30vh; width: auto; height: auto; display: block; margin: 0 auto; border-radius: 6px; background: #000; }
-  #timeline { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-  #timeline input { flex: 1; accent-color: var(--accent); }
+  #timeline { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  #play { flex: none; width: 40px; height: 40px; }
+  /* QuickTime-style trimmer: a filmstrip, a yellow frame with handles, and a playhead */
+  #track { position: relative; flex: 1; height: 44px; margin: 12px 14px 0; cursor: pointer; touch-action: none; user-select: none; }
+  #grab { position: absolute; top: -13px; height: 10px; background: #f5c518; border-radius: 4px 4px 0 0; cursor: grab; opacity: .85; }
+  #grab:hover { opacity: 1; }
+  #parts .band { position: absolute; bottom: 0; height: 15px; background: rgba(79,140,255,.8); color: #fff; font: 600 10px/15px -apple-system, sans-serif; text-align: center; overflow: hidden; border-radius: 3px; cursor: pointer; }
+  #parts .band.on { background: #4f8cff; box-shadow: 0 0 0 2px #fff inset; }
+  #over { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(229,72,77,.55) 0 6px, rgba(229,72,77,.3) 6px 12px); pointer-events: none; display: none; }
+  .warn { color: #e5484d; }
+  #strip { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 4px; background: #000; }
+  #track .dim { position: absolute; top: 0; bottom: 0; background: rgba(0,0,0,.62); pointer-events: none; }
+  #dimL { left: 0; border-radius: 4px 0 0 4px; }
+  #dimR { right: 0; border-radius: 0 4px 4px 0; }
+  #sel { position: absolute; top: -3px; bottom: -3px; border-top: 3px solid #f5c518; border-bottom: 3px solid #f5c518; pointer-events: none; }
+  #track .handle { position: absolute; top: -3px; bottom: -3px; width: 14px; background: #f5c518; cursor: ew-resize; touch-action: none; }
+  #track .handle::after { content: ''; position: absolute; left: 5px; top: 30%; bottom: 30%; width: 4px; border-left: 2px solid rgba(0,0,0,.45); border-right: 2px solid rgba(0,0,0,.45); box-sizing: border-box; }
+  #hL { border-radius: 6px 0 0 6px; }
+  #hR { border-radius: 0 6px 6px 0; }
+  #playhead { position: absolute; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; background: #fff; border-radius: 1px; pointer-events: none; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+  #timeInfo { display: flex; justify-content: space-between; margin: 6px 0 0 64px; font-variant-numeric: tabular-nums; }
   .muted { color: var(--muted); font-size: 12px; }
   progress { width: 100%; height: 8px; accent-color: var(--accent); }
   select { flex: 1; min-width: 0; }
@@ -92,10 +111,19 @@
         </div>
         <div id="frame"><canvas id="view"></canvas></div>
         <div id="timeline">
-          <button id="play">⏸</button>
-          <input id="seek" type="range" min="0" max="1000" value="0">
-          <span id="clock" class="muted">0.0 s</span>
+          <button id="play" title="Play / pause (Space)">⏸</button>
+          <div id="track" title="Drag the yellow handles to trim. Click to jump.">
+            <canvas id="strip"></canvas>
+            <div class="dim" id="dimL"></div><div class="dim" id="dimR"></div>
+            <div id="parts"></div>
+            <div id="over"></div>
+            <div id="sel"></div>
+            <div id="grab" title="Drag to move the whole clip"></div>
+            <div class="handle" id="hL"></div><div class="handle" id="hR"></div>
+            <div id="playhead"></div>
+          </div>
         </div>
+        <div id="timeInfo" class="muted"><span id="clock">0.0 s</span><span id="trimInfo"></span></div>
         <p class="muted" id="viewHint">Drag the frame to move it. Scroll or use the Size slider to zoom.</p>
       </div>
     </div>
@@ -139,6 +167,25 @@
         <button id="setStart">Start here</button>
         <button id="setEnd">End here</button>
       </div>
+    </div>
+
+    <div class="panel">
+      <h2>Speed</h2>
+      <div class="row"><label>Whole clip</label><input id="speed" type="range" min="-300" max="400" value="0"><output id="speedV">1×</output></div>
+      <div class="row">
+        <button id="addPart">＋ Speed up a part</button>
+        <button id="fit3" hidden>Fit into 3 s</button>
+      </div>
+      <div id="partEditor" hidden>
+        <div class="row"><label>This part</label><input id="partSpeed" type="range" min="-200" max="300" value="100"><output id="partSpeedV">2×</output></div>
+        <div class="row">
+          <button id="partFrom">From here</button>
+          <button id="partTo">To here</button>
+          <button id="partDelete">Delete</button>
+        </div>
+        <p class="muted" id="partInfo"></p>
+      </div>
+      <p class="muted">Faster parts are the blue bands on the timeline. Click one to change it.</p>
     </div>
 
     <div class="panel">
@@ -196,17 +243,20 @@ class FrameClip extends EventTarget {
   constructor(frames, duration) {
     super();
     Object.assign(this, { frames, duration, videoWidth: frames[0].bmp.width, videoHeight: frames[0].bmp.height,
-      readyState: 4, seeking: false, paused: true, t: 0, since: 0 });
+      readyState: 4, seeking: false, paused: true, t: 0, since: 0, rate: 1 });
   }
-  get currentTime() { return this.paused ? this.t : (this.t + (performance.now() - this.since) / 1000) % this.duration; }
+  get currentTime() { return this.paused ? this.t : (this.t + (performance.now() - this.since) / 1000 * this.rate) % this.duration; }
+  get playbackRate() { return this.rate; }
+  set playbackRate(v) { this.t = this.currentTime; this.since = performance.now(); this.rate = v; }
   set currentTime(v) {
     this.t = Math.max(0, Math.min(v, this.duration)); this.since = performance.now();
     setTimeout(() => this.dispatchEvent(new Event('seeked')));
   }
   play() { if (this.paused) { this.since = performance.now(); this.paused = false; } return Promise.resolve(); }
   pause() { if (!this.paused) { this.t = this.currentTime; this.paused = true; } }
-  get frame() {
-    const t = this.currentTime + 1e-6, f = this.frames;
+  get frame() { return this.frameAt(this.currentTime); }
+  frameAt(time) {
+    const t = time + 1e-6, f = this.frames;
     let lo = 0, hi = f.length - 1;
     while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (f[mid].t <= t) lo = mid; else hi = mid - 1; }
     return f[lo].bmp;
@@ -440,13 +490,13 @@ function useMedia(m) {
   video = m;
   window.gifMaker.loads++;
   crop = { x: 0, y: 0, w: 0, h: 0 };
-  range = { start: 0, end: video.duration };
-  $('start').value = 0; $('end').value = 1000;
   drop.style.display = 'none';
   $('stage').style.display = 'flex';
   $('export').disabled = false;
   setAspect(aspect);
-  updateRangeLabels();
+  speed = 1; $('speed').value = 0; parts = []; selectPart(null);
+  setRange(0, video.duration, 'end');
+  drawStrip();
   lastKey = '';
   video.play();
   $('play').textContent = '⏸';
@@ -458,7 +508,7 @@ window.gifMaker = {
   get video() { return video; },
   loads: 0,
   usedWorker: null,
-  state: () => ({ crop: { ...crop }, range: { ...range }, aspect, filter, mode, split, out: outSize(), view: { w: view.width, h: view.height }, source: { w: video.videoWidth, h: video.videoHeight } }),
+  state: () => ({ crop: { ...crop }, range: { ...range }, aspect, filter, mode, split, speed, parts: parts.map((p) => ({ ...p })), length: outLength(), out: outSize(), view: { w: view.width, h: view.height }, source: { w: video.videoWidth, h: video.videoHeight } }),
 };
 
 // ---------- crop ----------
@@ -571,23 +621,217 @@ view.onwheel = (e) => {
 
 // ---------- trim ----------
 const fmt = (t) => t.toFixed(1) + ' s';
+const MIN_CLIP = 0.1;
+const isSticker = () => $('format').value === 'sticker';
+
+// The one place the clip changes. `moved` is the side the user moved ('start', 'end' or 'both');
+// the other side gives way so the clip stays at least 0.1 s long.
+function setRange(start, end, moved) {
+  const d = video.duration || 0;
+  if (moved === 'both') { const len = end - start; start = Math.max(0, Math.min(start, d - len)); end = start + len; }
+  start = Math.max(0, Math.min(start, d)); end = Math.max(0, Math.min(end, d));
+  if (moved === 'start') {
+    start = Math.min(start, d - MIN_CLIP);
+    if (end < start + MIN_CLIP) end = start + MIN_CLIP;
+  } else if (moved === 'end') {
+    end = Math.max(end, MIN_CLIP);
+    if (start > end - MIN_CLIP) start = end - MIN_CLIP;
+  }
+  range = { start, end };
+  updateRangeLabels();
+}
+
+// ---------- speed ----------
+// The whole clip plays at `speed`; each part multiplies that inside its span. Times are in the source.
+let speed = 1, parts = [], selected = null, nextPartId = 1;
+const rateAt = (t) => { const p = parts.find((x) => t >= x.from && t < x.to); return speed * (p ? p.speed : 1); };
+function pieces(a, b) {
+  const xs = [...new Set([a, b, ...parts.flatMap((p) => [p.from, p.to]).filter((x) => x > a && x < b)])].sort((x, y) => x - y);
+  return xs.slice(0, -1).map((x, i) => ({ from: x, to: xs[i + 1], rate: rateAt((x + xs[i + 1]) / 2) }));
+}
+// how long [a, b] lasts in the export
+const outLength = (a = range.start, b = range.end) => pieces(a, b).reduce((sum, p) => sum + (p.to - p.from) / p.rate, 0);
+// the source time shown `tau` seconds into the export
+function sourceAt(tau, a = range.start, b = range.end) {
+  for (const p of pieces(a, b)) {
+    const len = (p.to - p.from) / p.rate;
+    if (tau <= len) return p.from + tau * p.rate;
+    tau -= len;
+  }
+  return b;
+}
+const speedFrom = (v) => Math.pow(2, v / 100);
+const speedText = (x) => (x >= 10 ? x.toFixed(0) : x >= 1 ? +x.toFixed(2) : +x.toFixed(3)) + '×';
+
+$('speed').oninput = () => { speed = speedFrom(+$('speed').value); speedChanged(); };
+$('fit3').onclick = () => {
+  speed = Math.min(16, speed * outLength() / STICKER_MAX_S);
+  $('speed').value = Math.round(Math.log2(speed) * 100);
+  speedChanged();
+};
+$('addPart').onclick = () => {
+  const t = video.currentTime, d = video.duration;
+  const before = parts.filter((p) => p.to <= t).reduce((m, p) => Math.max(m, p.to), 0);
+  const after = parts.filter((p) => p.from >= t).reduce((m, p) => Math.min(m, p.from), d);
+  if (parts.some((p) => t >= p.from && t < p.to) || after - before < 0.1) { showError('There’s already a fast part here: click its band to change it.'); return; }
+  const part = { id: nextPartId++, from: Math.max(before, t - 0.5), to: Math.min(after, t + 0.5), speed: 2 };
+  parts.push(part); parts.sort((x, y) => x.from - y.from);
+  showError('');
+  selectPart(part);
+  speedChanged();
+};
+function selectPart(part) {
+  selected = part;
+  $('partEditor').hidden = !part;
+  if (part) $('partSpeed').value = Math.round(Math.log2(part.speed) * 100);
+  speedChanged();
+}
+$('partSpeed').oninput = () => { if (selected) { selected.speed = speedFrom(+$('partSpeed').value); speedChanged(); } };
+// move one edge of the selected part to the playhead, without running into its neighbours
+function movePartEdge(edge) {
+  if (!selected) return;
+  const t = video.currentTime, others = parts.filter((p) => p !== selected);
+  if (edge === 'from') {
+    const limit = others.filter((p) => p.to <= selected.from + 1e-9).reduce((m, p) => Math.max(m, p.to), 0);
+    selected.from = Math.max(limit, Math.min(t, selected.to - 0.1));
+  } else {
+    const limit = others.filter((p) => p.from >= selected.to - 1e-9).reduce((m, p) => Math.min(m, p.from), video.duration);
+    selected.to = Math.min(limit, Math.max(t, selected.from + 0.1));
+  }
+  speedChanged();
+}
+$('partFrom').onclick = () => movePartEdge('from');
+$('partTo').onclick = () => movePartEdge('to');
+$('partDelete').onclick = () => { parts = parts.filter((p) => p !== selected); selectPart(null); };
+
+function speedChanged() {
+  $('speedV').textContent = speedText(speed);
+  if (selected) {
+    $('partSpeedV').textContent = speedText(selected.speed);
+    $('partInfo').textContent = `${fmt(selected.from)} – ${fmt(selected.to)}: plays at ${speedText(speed * selected.speed)}`;
+  }
+  placeParts();
+  updateRangeLabels();
+  lastKey = '';
+}
+
+function placeParts() {
+  $('parts').replaceChildren(...parts.map((p) => {
+    const band = document.createElement('div');
+    band.className = 'band' + (p === selected ? ' on' : '');
+    band.dataset.part = p.id;
+    band.style.left = pct(p.from); band.style.width = `calc(${pct(p.to)} - ${pct(p.from)})`;
+    band.textContent = speedText(p.speed);
+    band.title = `${fmt(p.from)} – ${fmt(p.to)} at ${speedText(p.speed)}`;
+    return band;
+  }));
+}
+
 function updateRangeLabels() {
   $('startV').textContent = fmt(range.start);
   $('endV').textContent = fmt(range.end);
+  if (video.duration) {
+    $('start').value = range.start / video.duration * 1000;
+    $('end').value = range.end / video.duration * 1000;
+  }
+  const length = outLength();
+  const changed = Math.abs(length - (range.end - range.start)) > 0.05;
+  $('trimInfo').textContent = `${fmt(range.start)} – ${fmt(range.end)} · ${changed ? `plays ${fmt(length)}` : fmt(length)}`;
+  $('fit3').hidden = !isSticker();
+  placeTrim();
   estimate();
 }
-$('start').oninput = () => {
-  range.start = Math.min(+$('start').value / 1000 * video.duration, range.end - 0.1);
-  video.currentTime = range.start; updateRangeLabels();
+
+$('start').oninput = () => { setRange(+$('start').value / 1000 * video.duration, range.end, 'start'); video.currentTime = range.start; };
+$('end').oninput = () => { setRange(range.start, +$('end').value / 1000 * video.duration, 'end'); video.currentTime = Math.max(range.start, range.end - 0.5); };
+$('setStart').onclick = () => setRange(video.currentTime, range.end, 'start');
+$('setEnd').onclick = () => setRange(range.start, video.currentTime, 'end');
+const playPause = () => { if (video.paused) { video.play(); $('play').textContent = '⏸'; } else { video.pause(); $('play').textContent = '▶︎'; } };
+$('play').onclick = playPause;
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' || !video.duration || e.target.closest('input, select, textarea, button')) return;
+  e.preventDefault(); playPause();
+});
+
+// ---------- the timeline ----------
+const track = $('track');
+const pct = (t) => (video.duration ? t / video.duration * 100 : 0) + '%';
+function placeTrim() {
+  $('dimL').style.width = pct(range.start);
+  $('dimR').style.width = `calc(100% - ${pct(range.end)})`;
+  $('sel').style.left = pct(range.start);
+  $('sel').style.width = `calc(${pct(range.end)} - ${pct(range.start)})`;
+  $('hL').style.left = `calc(${pct(range.start)} - 14px)`;
+  $('hR').style.left = pct(range.end);
+  $('grab').style.left = pct(range.start);
+  $('grab').style.width = `calc(${pct(range.end)} - ${pct(range.start)})`;
+  // a sticker stops after 3 s of output: hatch in red what won't make it in
+  const over = isSticker() && outLength() > STICKER_MAX_S + 1e-6;
+  $('over').style.display = over ? 'block' : 'none';
+  if (over) { const cut = sourceAt(STICKER_MAX_S); $('over').style.left = pct(cut); $('over').style.width = `calc(${pct(range.end)} - ${pct(cut)})`; }
+}
+const placePlayhead = () => { $('playhead').style.left = pct(video.currentTime); };
+const timeAt = (e) => { const r = track.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * video.duration; };
+
+// Drag a handle to trim (the big view shows the frame under it), or click / drag anywhere else to jump.
+let scrub = null;
+track.onpointerdown = (e) => {
+  if (!video.duration) return;
+  e.preventDefault();
+  track.setPointerCapture(e.pointerId);
+  const band = e.target.closest('.band');
+  if (band) selectPart(parts.find((p) => p.id === +band.dataset.part));
+  const what = e.target.id === 'hL' ? 'start' : e.target.id === 'hR' ? 'end' : e.target.id === 'grab' ? 'move' : 'seek';
+  scrub = { what, wasPlaying: !video.paused, at: timeAt(e), from: { ...range } };
+  video.pause();
+  if (what !== 'move') track.onpointermove(e);
 };
-$('end').oninput = () => {
-  range.end = Math.max(+$('end').value / 1000 * video.duration, range.start + 0.1);
-  video.currentTime = Math.max(range.start, range.end - 0.5); updateRangeLabels();
+track.onpointermove = (e) => {
+  if (!scrub) return;
+  const t = timeAt(e);
+  if (scrub.what === 'move') { const dt = t - scrub.at; setRange(scrub.from.start + dt, scrub.from.end + dt, 'both'); video.currentTime = range.start; }
+  else if (scrub.what === 'start') { setRange(t, range.end, 'start'); video.currentTime = range.start; }
+  else if (scrub.what === 'end') { setRange(range.start, t, 'end'); video.currentTime = Math.max(range.start, range.end - 0.02); }
+  else video.currentTime = Math.max(range.start, Math.min(t, range.end - 0.02));
 };
-$('setStart').onclick = () => { range.start = Math.min(video.currentTime, range.end - 0.1); $('start').value = range.start / video.duration * 1000; updateRangeLabels(); };
-$('setEnd').onclick = () => { range.end = Math.max(video.currentTime, range.start + 0.1); $('end').value = range.end / video.duration * 1000; updateRangeLabels(); };
-$('play').onclick = () => { if (video.paused) { video.play(); $('play').textContent = '⏸'; } else { video.pause(); $('play').textContent = '▶︎'; } };
-$('seek').oninput = () => { video.currentTime = +$('seek').value / 1000 * video.duration; };
+track.onpointerup = track.onpointercancel = () => {
+  if (!scrub) return;
+  if (scrub.what === 'end') video.currentTime = range.start;
+  if (scrub.wasPlaying) video.play();
+  $('play').textContent = video.paused ? '▶︎' : '⏸';
+  scrub = null;
+};
+
+// The filmstrip: one thumbnail per slot along the track, taken from a second, hidden copy of the media
+// so it never disturbs playback. Redrawn when the track changes size.
+let stripToken = 0;
+async function drawStrip() {
+  const token = ++stripToken, m = video;
+  if (!m.duration) return;
+  const strip = $('strip'), dpr = devicePixelRatio || 1, r = track.getBoundingClientRect();
+  if (!r.width) return;
+  strip.width = Math.round(r.width * dpr); strip.height = Math.round(r.height * dpr);
+  const sctx = strip.getContext('2d');
+  const th = strip.height, tw = Math.max(8, Math.round(th * m.videoWidth / m.videoHeight)), n = Math.ceil(strip.width / tw);
+  let source = m, probe = null;
+  if (m === videoEl) {
+    probe = document.createElement('video');
+    probe.muted = true; probe.preload = 'auto'; probe.src = videoEl.currentSrc || videoEl.src;
+    await new Promise((res) => { probe.onloadeddata = res; probe.onerror = res; });
+    source = probe;
+  }
+  for (let i = 0; i < n && token === stripToken; i++) {
+    const t = Math.min(m.duration - 0.01, (i + 0.5) * tw / strip.width * m.duration);
+    let img;
+    if (probe) {
+      await new Promise((res) => { const done = () => { clearTimeout(timer); res(); }; const timer = setTimeout(done, 1500); probe.addEventListener('seeked', done, { once: true }); probe.currentTime = t; });
+      img = probe;
+    } else img = m.frameAt(t);
+    sctx.drawImage(img, i * tw, 0, tw, th);
+  }
+  if (probe) probe.removeAttribute('src');
+}
+new ResizeObserver(() => { clearTimeout(drawStrip.timer); drawStrip.timer = setTimeout(drawStrip, 150); }).observe(track);
 
 // ---------- colour ----------
 const colorIds = ['exposure', 'shadows', 'contrast', 'saturation', 'warmth', 'grain'];
@@ -705,8 +949,10 @@ function draw() {
       applyTint(img.data, P);
       octx.putImageData(img, 0, 0);
 
-      $('seek').value = video.currentTime / video.duration * 1000;
+      placePlayhead();
       $('clock').textContent = fmt(video.currentTime);
+      const rate = Math.min(16, rateAt(video.currentTime));
+      if (Math.abs(video.playbackRate - rate) > 1e-3) video.playbackRate = rate;
     }
   }
   requestAnimationFrame(draw);
@@ -723,27 +969,37 @@ const FORMATS = {
   webm:    { label: 'WebM', ext: 'webm', type: 'video/webm',
              hint: 'Full colour, small file, VP9. Good for the web and Discord.' },
   sticker: { label: 'sticker', ext: 'webm', type: 'video/webm',
-             hint: 'Telegram video sticker: WebM VP9, 512 px, up to 3 s and 256 KB, no sound. Send it to @Stickers (/newvideo).' },
+             hint: 'Telegram video sticker: WebM VP9, 512 px, up to 3 s and 256 KB, no sound. Longer clips: trim, slide the yellow bar, or speed up. Then send the file to @Stickers with /newvideo.' },
 };
 const STICKER_MAX_S = 3, STICKER_MAX_BYTES = 256 * 1024;
 
 function exportPlan() {
   const fmt = $('format').value;
   const s = outSize();
-  let fps = +$('fps').value, start = range.start, end = range.end;
+  let fps = +$('fps').value;
   if (fmt === 'gif') fps = Math.min(fps, 50);          // browsers slow down GIF frames shorter than 20 ms
-  if (fmt === 'sticker') { fps = Math.min(fps, 30); end = Math.min(end, start + STICKER_MAX_S); }
-  return { fmt, s, fps, start, end, n: Math.max(1, Math.round((end - start) * fps)) };
+  const total = outLength();
+  let length = total;
+  if (fmt === 'sticker') { fps = Math.min(fps, 30); length = Math.min(total, STICKER_MAX_S); }
+  const n = Math.max(1, Math.round(length * fps));
+  // frame i shows the source at the moment the speed map puts i / fps seconds into the export
+  const times = Array.from({ length: n }, (_, i) => sourceAt(i / fps));
+  return { fmt, s, fps, n, times, length, total };
 }
 
 function estimate() {
   if (!video.duration) return;
   const p = exportPlan();
-  let text = `${p.s.w}×${p.s.h}, ${p.n} frames at ${p.fps}/s, ${(p.end - p.start).toFixed(1)} s`;
+  let text = `${p.s.w}×${p.s.h}, ${p.n} frames at ${p.fps}/s, ${p.length.toFixed(1)} s`;
   if (p.fmt !== 'sticker' && p.s.w < +$('width').value) text += ' (the full size of the cropped frame; no upscaling)';
-  if (p.fmt === 'sticker' && range.end - range.start > STICKER_MAX_S) text += ' (stickers are cut to the first 3 s)';
   if (p.fmt === 'gif' && +$('fps').value > 50) text += ' (GIF tops out at 50 frames/s)';
   $('estimate').textContent = text;
+  if (p.fmt === 'sticker' && p.total > STICKER_MAX_S + 1e-6) {
+    const warn = document.createElement('span');
+    warn.className = 'warn';
+    warn.textContent = ` The clip plays ${p.total.toFixed(1)} s, but Telegram stickers stop at 3 s: the red part is left out. Trim it, or press “Fit into 3 s”.`;
+    $('estimate').append(warn);
+  }
 }
 
 function updateFormat() {
@@ -753,7 +1009,7 @@ function updateFormat() {
   $('widthRow').hidden = fmt === 'sticker';
   $('audioRow').hidden = fmt !== 'mp4' && fmt !== 'webm';
   $('export').textContent = fmt === 'sticker' ? 'Make sticker' : `Make ${FORMATS[fmt].label}`;
-  if (video.duration) sizeOutput();
+  if (video.duration) { setRange(range.start, range.end, 'start'); sizeOutput(); }
 }
 $('format').onchange = updateFormat;
 $('width').oninput = () => { $('widthV').textContent = $('width').value; sizeOutput(); };
@@ -810,7 +1066,7 @@ async function encodeHere(cfg, n, grab, onProgress) {
 }
 
 async function encodeGif(plan, grab, onProgress) {
-  const { s, fps, n, start } = plan;
+  const { s, fps, n, times } = plan;
   // One palette for the whole clip, so colours don't jump between frames.
   let palette;
   if (P.mix) {
@@ -823,7 +1079,7 @@ async function encodeGif(plan, grab, onProgress) {
     const sctx = small.getContext('2d', { willReadFrequently: true });
     const k = Math.min(32, n), frame = sw * sh * 4, all = new Uint8ClampedArray(frame * k);
     for (let j = 0; j < k; j++) {
-      await seekTo(start + Math.round(j * (n - 1) / Math.max(1, k - 1)) / fps);
+      await seekTo(times[Math.round(j * (n - 1) / Math.max(1, k - 1))]);
       sctx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, sw, sh);
       const d = sctx.getImageData(0, 0, sw, sh).data;
       adjust(d, P, j + 1);
@@ -929,13 +1185,13 @@ $('export').onclick = async () => {
   const prog = $('progress'); prog.hidden = false; prog.value = 0;
 
   const plan = exportPlan();
-  const { fmt, s, fps, start } = plan;
+  const { fmt, s, fps, times } = plan;
   const canvas = document.createElement('canvas');
   canvas.width = s.w; canvas.height = s.h;
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   const grab = async (i) => {
-    await seekTo(start + i / fps);
+    await seekTo(times[i]);
     ctx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, s.w, s.h);
     return ctx.getImageData(0, 0, s.w, s.h).data;
   };

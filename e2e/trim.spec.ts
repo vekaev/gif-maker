@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
-import { open, loadVideo, state, seek, setSlider } from './helpers'
+import { open, loadVideo, state, seek, setSlider, settle } from './helpers'
+import type { Page } from '@playwright/test'
 
 // fade.mp4 is 5 s long
 test.beforeEach(async ({ page }) => {
@@ -55,9 +56,90 @@ test('the preview loops inside the clip', async ({ page }) => {
   expect(times.some((t, i) => i > 0 && t < times[i - 1])).toBe(true)
 })
 
-test('the timeline slider seeks', async ({ page }) => {
-  await page.click('#play')
-  await setSlider(page, 'seek', 600)
-  await expect.poll(() => page.evaluate(() => window.gifMaker.video.currentTime)).toBeCloseTo(3, 1)
-  await expect(page.locator('#clock')).toHaveText('3.0 s')
+test.describe('the timeline', () => {
+  // x position on the track for a source time
+  const xAt = async (page: Page, t: number) => {
+    const box = (await page.locator('#track').boundingBox())!
+    return { x: box.x + box.width * t / 5, y: box.y + box.height / 2, box }
+  }
+  const dragHandle = async (page: Page, id: string, to: number) => {
+    const h = (await page.locator(id).boundingBox())!
+    const target = await xAt(page, to)
+    // grab the handle at its inner edge, which sits exactly on the current start / end
+    const grabX = id === '#hL' ? h.x + h.width - 1 : h.x + 1
+    await page.mouse.move(grabX, h.y + h.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(target.x, h.y + h.height / 2, { steps: 6 })
+    await page.mouse.up()
+  }
+
+  test('dragging the yellow handles trims, like QuickTime', async ({ page }) => {
+    await dragHandle(page, '#hL', 1)
+    await dragHandle(page, '#hR', 3.5)
+    const { range } = await state(page)
+    expect(range.start).toBeCloseTo(1, 1)
+    expect(range.end).toBeCloseTo(3.5, 1)
+    await expect(page.locator('#trimInfo')).toHaveText(/1\.0 s – 3\.5 s · 2\.5 s/)
+    // the sidebar sliders follow
+    await expect(page.locator('#startV')).toHaveText('1.0 s')
+    expect(Number(await page.locator('#end').inputValue())).toBeCloseTo(700, -1)
+  })
+
+  test('while dragging a handle the big view shows that frame', async ({ page }) => {
+    const h = (await page.locator('#hL').boundingBox())!
+    const target = await xAt(page, 2)
+    await page.mouse.move(h.x + h.width - 1, h.y + h.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(target.x, h.y + h.height / 2, { steps: 6 })
+    expect(await page.evaluate(() => window.gifMaker.video.currentTime)).toBeCloseTo(2, 1)
+    expect(await page.evaluate(() => window.gifMaker.video.paused)).toBe(true)
+    await page.mouse.up()
+  })
+
+  test('clicking the track jumps there', async ({ page }) => {
+    await page.click('#play') // pause
+    const { x, y } = await xAt(page, 3)
+    await page.mouse.click(x, y)
+    await expect.poll(() => page.evaluate(() => window.gifMaker.video.currentTime)).toBeCloseTo(3, 1)
+    await expect(page.locator('#clock')).toHaveText('3.0 s')
+  })
+
+  test('the yellow bar slides the whole clip and keeps its length', async ({ page }) => {
+    await setSlider(page, 'start', 0)
+    await setSlider(page, 'end', 400) // 0–2 s
+    const bar = (await page.locator('#grab').boundingBox())!
+    const { box } = await xAt(page, 0)
+    await page.mouse.move(bar.x + bar.width / 2, bar.y + bar.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(bar.x + bar.width / 2 + box.width * 0.3, bar.y + bar.height / 2, { steps: 6 }) // +1.5 s
+    await page.mouse.up()
+    let { range } = await state(page)
+    expect(range.start).toBeCloseTo(1.5, 1)
+    expect(range.end - range.start).toBeCloseTo(2, 2)
+    // it stops at the end of the video
+    await page.mouse.move(bar.x + bar.width / 2 + box.width * 0.3, bar.y + bar.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width + 200, bar.y + bar.height / 2, { steps: 6 })
+    await page.mouse.up()
+    ;({ range } = await state(page))
+    expect(range.end).toBeCloseTo(5, 1)
+    expect(range.end - range.start).toBeCloseTo(2, 2)
+  })
+
+  test('the filmstrip shows the clip (fade: dark on the left, bright on the right)', async ({ page }) => {
+    await expect.poll(() => page.evaluate(() => {
+      const c = document.getElementById('strip') as HTMLCanvasElement
+      const x = c.getContext('2d')!
+      const at = (f: number) => x.getImageData(Math.round(f * c.width), c.height >> 1, 1, 1).data[0]
+      return at(0.95) - at(0.05)
+    }), { timeout: 10_000 }).toBeGreaterThan(150)
+  })
+
+  test('Space plays and pauses', async ({ page }) => {
+    await page.click('#view')
+    const before = await page.evaluate(() => window.gifMaker.video.paused)
+    await page.keyboard.press('Space')
+    await settle(page)
+    expect(await page.evaluate(() => window.gifMaker.video.paused)).toBe(!before)
+  })
 })

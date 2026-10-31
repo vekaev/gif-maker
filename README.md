@@ -50,8 +50,12 @@ crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-w
 - **Crop to any shape.** 1:1, 4:5, 9:16, 16:9 or the original. Drag the frame, scroll to zoom, or snap it to
   the left edge, the center or the right edge in one click. Everything outside the frame dims, so you see
   exactly what you'll get.
-- **Trim to the moment.** Start and end sliders, or pause where you want and press **Start here** /
-  **End here**. The preview loops only that part.
+- **Trim like in QuickTime.** A filmstrip under the picture with a yellow frame: drag its handles to set
+  the start and end (the big view shows the frame under the handle), drag the yellow bar on top to slide the
+  whole clip, click anywhere to jump. **Space** plays and pauses. The preview loops only the clip.
+- **Speed it up, all of it or just a part.** One slider for the whole clip (⅛× to 16×). **＋ Speed up a
+  part** adds a faster stretch at the playhead, shown as a blue band on the timeline with its own speed.
+  The preview plays at those speeds, and the export follows them frame by frame.
 - **Fix the light.** Exposure, Shadows, Contrast, Saturation and Warmth, live as you drag. **✨ Auto** lifts
   a dark clip so the highlights sit near white and the midtones open up. **Reset** puts it all back.
 - **Black-and-white film looks.** Six of them: iPhone Mono, Silvertone and Noir, Leica Monochrom and Leica
@@ -72,7 +76,7 @@ crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-w
 | **GIF** | Anywhere that only takes GIFs | Up to 256 colours, so files are the biggest. Up to 1920 px, up to 50 frames/s. |
 | **MP4** (H.264) | Telegram, iMessage, WhatsApp, the web | Full colour, small files, plays everywhere. Adds a silent sound track by default so Telegram sends it as a video, not a GIF. |
 | **WebM** (VP9) | The web, Discord | Full colour, small files. Optional silent Opus track. |
-| **Telegram sticker** | Telegram video stickers | WebM VP9, 512 px on the longer side, up to 3 s, no sound, under 256 KB: the size is checked and the bitrate stepped down until it fits. |
+| **Telegram sticker** | Telegram video stickers | WebM VP9, 512 px on the longer side, up to 3 s, no sound, under 256 KB: the size is checked and the bitrate stepped down until it fits. If the clip plays longer than 3 s, the part that won't make it in is hatched red on the timeline, and **Fit into 3 s** speeds the clip up so all of it fits. |
 
 MP4 and WebM are encoded with your browser's own video encoder (WebCodecs). If a browser can't encode a
 format at that size, the app says so instead of producing a broken file.
@@ -125,7 +129,9 @@ frame. GIF Maker avoids both:
 - **As a video:** export **MP4** with **Silent sound track** on (the default). Telegram sends a video with
   a sound track as a regular video.
 - **As a sticker:** export **Telegram sticker**, then send the file to [@Stickers](https://t.me/stickers)
-  with `/newvideo` (new pack) or `/addsticker`. Requirements are in
+  with `/newvideo` (a new video pack) or `/addsticker` (into a video pack you made with `/newvideo`).
+  Sending the .webm straight into a chat, or into a pack made with `/newpack`, gives a still picture or
+  "Invalid file type": those packs take only static PNG/WEBP. Requirements are in
   [Telegram's guide](https://core.telegram.org/stickers/webm-vp9-encoding). Sticker packs can be opened by
   anyone with their link.
 
@@ -182,7 +188,11 @@ clips in `e2e/fixtures` and checks the actual output files, not just the UI:
   before side stays in colour and the after side follows the look as you drag the line.
 - **Crop:** every aspect, snapping to the edges (by the colours that end up in the frame), dragging,
   zooming, no upscaling, the dimmed outside.
-- **Trim:** the sliders, **Start here / End here**, and that the preview loops inside the clip.
+- **Trim:** dragging the timeline handles (and seeing that frame), sliding the clip by its bar, clicking to
+  jump, the filmstrip, Space, the sliders, **Start here / End here**, and that the preview loops inside.
+- **Speed:** the whole clip at 2× (half as long, every moment still in it), a 4× part that shortens only
+  itself (checked frame by frame in the GIF), the preview's playback rate, editing and deleting parts,
+  the sticker's red overflow and **Fit into 3 s**, and that GIFs have no 3 s limit.
 - **Light and colour:** each slider changes the right pixels, **Auto** lifts a dark clip, **Reset**. All
   six B&W looks come out grey and clearly different from each other, and grain adds noise.
 - **GIF:** frame count, size, exact length, that the right moments are in it (a fade's brightness frame by
