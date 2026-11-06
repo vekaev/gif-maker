@@ -151,9 +151,9 @@ struct SidePanel: View {
                     }
                     Spacer(minLength: 4)
                     Button { editor.reveal(item.path) } label: { Image(systemName: "magnifyingglass") }
-                        .buttonStyle(.plain).help("Show in Finder").accessibilityLabel("Show in Finder")
+                        .buttonStyle(.plain).pointer().help("Show in Finder").accessibilityLabel("Show in Finder")
                     Button { editor.removeRecent(item) } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Remove from this list").accessibilityLabel("Remove from this list")
+                        .buttonStyle(.plain).pointer().foregroundStyle(.secondary).help("Remove from this list").accessibilityLabel("Remove from this list")
                 }
             }
         }

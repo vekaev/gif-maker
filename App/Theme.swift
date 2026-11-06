@@ -7,7 +7,7 @@ enum Theme {
     static let paper = Color(nsColor: NSColor(name: nil) { $0.isDark ? .black : NSColor(red: 0.965, green: 0.961, blue: 0.949, alpha: 1) })
     static let card = Color(nsColor: NSColor(name: nil) { $0.isDark ? NSColor(white: 0.11, alpha: 1) : .white })
     static let ink = Color(nsColor: NSColor(name: nil) { $0.isDark ? .white : .black })
-    static let line = Color(nsColor: NSColor(name: nil) { ($0.isDark ? NSColor.white : NSColor.black).withAlphaComponent(0.09) })
+    static let line = Color(nsColor: NSColor(name: nil) { $0.isDark ? NSColor.white.withAlphaComponent(0.12) : NSColor.black.withAlphaComponent(0.09) })
     static let track = Color(nsColor: NSColor(name: nil) { ($0.isDark ? NSColor.white : NSColor.black).withAlphaComponent(0.14) })
     static let trim = Color(red: 0.96, green: 0.77, blue: 0.09)
     static let warn = Color(red: 0.84, green: 0.23, blue: 0.25)
@@ -26,9 +26,18 @@ enum AppAppearance: String, CaseIterable, Identifiable {
     var colorScheme: ColorScheme? { self == .system ? nil : (self == .light ? .light : .dark) }
 }
 
+extension View {
+    /// Clickable things show the pointing hand.
+    @ViewBuilder func pointer() -> some View {
+        if #available(macOS 15, *) { self.pointerStyle(.link) }
+        else { self.onHover { inside in (inside ? NSCursor.pointingHand : NSCursor.arrow).set() } }
+    }
+}
+
 struct InkPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .pointer()
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .opacity(configuration.isPressed ? 0.85 : 1)
             .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
@@ -40,12 +49,11 @@ struct Pill: View {
     let title: String
     var enabled = true
     let action: () -> Void
-    @Environment(\.colorScheme) private var scheme
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold)).monospacedDigit()
-                .foregroundStyle(scheme == .dark ? Color.black : Color.white)
+                .foregroundStyle(Theme.paper)
                 .padding(.horizontal, 18).frame(height: 30)
                 .background(Theme.ink, in: Capsule())
                 .contentShape(Capsule())
@@ -62,13 +70,12 @@ struct Chip: View {
     var selected = false
     var wide = false
     let action: () -> Void
-    @Environment(\.colorScheme) private var scheme
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
-                .foregroundStyle(selected ? (scheme == .dark ? Color.black : Color.white) : Theme.ink)
+                .foregroundStyle(selected ? Theme.paper : Theme.ink)
                 .padding(.horizontal, 10).frame(height: 26)
                 .frame(maxWidth: wide ? .infinity : nil)
                 .background(selected ? Theme.ink : Color.clear, in: Capsule())
@@ -157,24 +164,22 @@ struct InkSlider: View {
     }
 }
 
-/// The app's mark: a crop frame around a play triangle. One ink colour, so it works on any paper.
+/// The app's mark, the icon's dial in one ink colour: a ring, the black disc at the top, and the frames trailing round.
 struct StartArt: View {
     var body: some View {
         Canvas { ctx, size in
             let s = min(size.width, size.height) / 56
             ctx.translateBy(x: (size.width - 56 * s) / 2, y: (size.height - 56 * s) / 2)
             ctx.scaleBy(x: s, y: s)
-            var corners = Path()
-            for (x, y, dx, dy) in [(4.0, 4.0, 1.0, 1.0), (52, 4, -1, 1), (52, 52, -1, -1), (4, 52, 1, -1)] {
-                corners.move(to: CGPoint(x: x, y: y + 13 * dy))
-                corners.addLine(to: CGPoint(x: x, y: y))
-                corners.addLine(to: CGPoint(x: x + 13 * dx, y: y))
+            let c = CGPoint(x: 28, y: 28)
+            ctx.stroke(Path(ellipseIn: CGRect(x: 3, y: 3, width: 50, height: 50)), with: .color(Theme.ink), lineWidth: 3.5)
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 8, y: c.y - 15 - 8, width: 16, height: 16)), with: .color(Theme.ink))
+            for i in 2...10 {
+                let a = -CGFloat.pi / 2 - CGFloat(i) / 12 * 2 * .pi
+                let f = 1 - CGFloat(i - 2) / 8, r = 1 + 1.6 * f
+                let p = CGPoint(x: c.x + cos(a) * 15, y: c.y + sin(a) * 15)
+                ctx.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)), with: .color(Theme.ink))
             }
-            ctx.stroke(corners, with: .color(Theme.ink), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-            var play = Path()
-            play.move(to: CGPoint(x: 22, y: 18)); play.addLine(to: CGPoint(x: 40, y: 28)); play.addLine(to: CGPoint(x: 22, y: 38)); play.closeSubpath()
-            ctx.fill(play, with: .color(Theme.ink))
-            ctx.stroke(play, with: .color(Theme.ink), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
         }
     }
 }

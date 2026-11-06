@@ -73,7 +73,7 @@ struct ContentView: View {
             Button { editor.close() } label: {
                 Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.ink).frame(width: 24, height: 24).contentShape(Rectangle())
             }
-            .buttonStyle(.plain).disabled(editor.isExporting).help("Close this file").accessibilityLabel("Close this file")
+            .buttonStyle(.plain).pointer().disabled(editor.isExporting).help("Close this file").accessibilityLabel("Close this file")
             Text(editor.baseName).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.middle).foregroundStyle(Theme.ink)
             statusView
             Spacer(minLength: 8)
@@ -107,7 +107,7 @@ struct ContentView: View {
         case .done(let s, let url):
             HStack(spacing: 6) {
                 Text(s).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                Button("Show in Finder") { editor.reveal(url.path) }.buttonStyle(.link).font(.caption)
+                Button("Show in Finder") { editor.reveal(url.path) }.buttonStyle(.link).pointer().font(.caption)
             }
         case .failed(let s):
             Text(s).font(.caption).foregroundStyle(Theme.warn).lineLimit(2)

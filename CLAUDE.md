@@ -34,6 +34,8 @@ The owner should never have to ask twice. For any feature, fix or design change:
 The owner's taste: monochrome, Notion / Apple minimal, with Stoic's warmth. Paper and ink (`App/Theme.swift`), a heavy
 lowercase headline ending in a period on the start page, one black pill per screen, cards with hairlines, no
 decoration. Colour belongs to the picture, and to the one thing borrowed from QuickTime: the yellow trim frame.
+The icon is the family's light soft-UI tile with Fuji Recipes' dial (`scripts/make-icon.swift`); the start page's mark, the
+favicon and `docs/icon.png` come from the same drawing. Everything clickable shows the pointing hand (`.pointer()`).
 
 ## Things learned the hard way
 

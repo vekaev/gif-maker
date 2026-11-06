@@ -67,6 +67,7 @@ struct TimelineBar: View {
                     .background(Color.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 3))
                     .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(.white, lineWidth: part.id == editor.selectedPart ? 1.5 : 0))
                     .offset(x: x(part.from), y: 29)
+                    .pointer()
                     .onTapGesture { editor.selectedPart = part.id }
                     .accessibilityLabel("Fast part, \(speedText(part.speed))")
             }
