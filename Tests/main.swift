@@ -204,6 +204,18 @@ func mainTests() {
         check(g.frames == 45, "\(g.frames) frames")
         near(g.centre[0], 102, 12, "first frame"); near(g.centre[44], 251, 14, "last frame")
     }
+    test("a frame held for seconds, as in screen recordings, shows while it's held") {
+        // held.mp4: fade.mp4's first (black) frame held until 4 s, then its last second
+        var set = ExportSettings(); set.width = 240
+        let g = inspectGIF(try export(try open("held.mp4"), clip: Clip(start: 2.5, end: 4.8), settings: set).url)
+        near(g.centre[0], 0, 8, "still the held black frame at 2.5 s")
+        check(g.centre[g.centre.count - 1] > 180, "the later frames follow: \(g.centre[g.centre.count - 1])")
+    }
+    test("the frame times agree with the speed map") {
+        let c = Clip(start: 0.5, end: 5, speed: 1.5, parts: [SpeedPart(from: 1, to: 3, speed: 4)])
+        let times = c.sourceTimes(count: 40, fps: 15)
+        for (i, t) in times.enumerated() { near(t, c.sourceTime(at: Double(i) / 15), 1e-9, "frame \(i)") }
+    }
     test("speed reaches the file, frame by frame") {
         var set = ExportSettings(); set.width = 240
         let g = inspectGIF(try export(try open("fade.mp4"), clip: Clip(start: 0, end: 5, parts: [SpeedPart(from: 1, to: 3, speed: 4)]), settings: set).url)

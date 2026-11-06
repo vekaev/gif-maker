@@ -112,6 +112,9 @@ final class MP4Writer {
         written += 1
     }
 
+    /// For an export that stops early.
+    func cancel() { if writer.status == .writing { writer.cancelWriting() } }
+
     func finish() throws {
         video.markAsFinished()
         if let audio {
@@ -170,6 +173,12 @@ final class VP9Encoder: NSObject {
     """
 
     private var web: WKWebView?
+
+    // WebKit objects have to go away on the main thread, also when an export stops early
+    deinit {
+        let (web, delegate) = (web, delegate)
+        DispatchQueue.main.async { _ = web; _ = delegate }
+    }
 
     private func call(_ js: String, _ args: [String: Any]) throws -> Any? {
         let done = DispatchSemaphore(value: 0)

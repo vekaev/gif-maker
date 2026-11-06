@@ -69,7 +69,7 @@ struct ContentView: View {
             Button { editor.close() } label: {
                 Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.ink).frame(width: 24, height: 24).contentShape(Rectangle())
             }
-            .buttonStyle(.plain).help("Close this file").accessibilityLabel("Close this file")
+            .buttonStyle(.plain).disabled(editor.isExporting).help("Close this file").accessibilityLabel("Close this file")
             Text(editor.baseName).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.middle).foregroundStyle(Theme.ink)
             statusView
             Spacer(minLength: 8)

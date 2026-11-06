@@ -146,6 +146,24 @@ struct Clip: Equatable, Codable {
         return end
     }
 
+    /// The source times of `count` export frames: `sourceTime` for each, walking the speed map once.
+    func sourceTimes(count: Int, fps: Int) -> [Double] {
+        let map = pieces()
+        var result = [Double](), index = 0, before = 0.0
+        result.reserveCapacity(count)
+        for i in 0..<count {
+            let tau = Double(i) / Double(fps)
+            while index < map.count {
+                let len = (map[index].to - map[index].from) / map[index].rate
+                if tau <= before + len { break }
+                before += len
+                index += 1
+            }
+            result.append(index < map.count ? map[index].from + (tau - before) * map[index].rate : end)
+        }
+        return result
+    }
+
     /// Moves one edge or both, keeping the clip inside the source and at least 0.1 s long.
     enum Edge { case start, end, both }
     mutating func set(start newStart: Double, end newEnd: Double, moved: Edge, duration d: Double) {
@@ -247,7 +265,7 @@ struct ExportPlan {
         total = clip.playLength
         length = settings.format == .sticker ? min(total, Self.stickerSeconds) : total
         let n = max(1, Int((length * Double(rate)).rounded()))
-        times = (0..<n).map { clip.sourceTime(at: Double($0) / Double(rate)) }
+        times = clip.sourceTimes(count: n, fps: rate)
         if settings.format == .sticker {
             // Telegram wants the longer side at exactly 512 px
             let k = 512 / max(crop.width, crop.height)

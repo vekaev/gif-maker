@@ -68,28 +68,30 @@ final class VideoSource: MediaSource {
         // like the source. Converting BT.709's transfer curve to sRGB would lift the midtones. HDR does need converting.
         var options: [CIImageOption: Any] = [.applyOrientationProperty: false]
         if !isHDR { options[.colorSpace] = NSNull() }
-        let image = CIImage(cvPixelBuffer: buffer, options: options)
-        return orientation == .up ? image : image.oriented(orientation)
+        var image = CIImage(cvPixelBuffer: buffer, options: options)
+        if orientation != .up { image = image.oriented(orientation) }
+        // non-square pixels: everything else works in display size, so stretch the buffer to it
+        let e = image.extent
+        guard e.size != size, e.width > 0, e.height > 0 else { return image }
+        return image.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY)
+            .concatenating(CGAffineTransform(scaleX: size.width / e.width, y: size.height / e.height)))
     }
 
     func read(times: [Double], body: (Int, CIImage) throws -> Void) throws {
         guard let first = times.first else { return }
-        let reader = try AVAssetReader(asset: asset)
-        // a little before the first frame, so the frame covering that moment is included
-        let from = max(0, first - 0.5)
-        reader.timeRange = CMTimeRange(start: CMTime(seconds: from, preferredTimescale: 600), end: .positiveInfinity)
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-            kCVPixelBufferMetalCompatibilityKey as String: true,
-        ])
-        output.alwaysCopiesSampleData = false
-        reader.add(output)
-        guard reader.startReading() else {
-            throw reader.error ?? MediaError.failed("This video can’t be read.")
+        func open(from: Double) throws -> (AVAssetReader, AVAssetReaderTrackOutput) {
+            let reader = try AVAssetReader(asset: asset)
+            reader.timeRange = CMTimeRange(start: CMTime(seconds: from, preferredTimescale: 600), end: .positiveInfinity)
+            let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                kCVPixelBufferMetalCompatibilityKey as String: true,
+            ])
+            output.alwaysCopiesSampleData = false
+            reader.add(output)
+            guard reader.startReading() else { throw reader.error ?? MediaError.failed("This video can’t be read.") }
+            return (reader, output)
         }
-        defer { reader.cancelReading() }
-
-        func next() -> (buffer: CVPixelBuffer, time: Double)? {
+        func next(_ output: AVAssetReaderTrackOutput) -> (buffer: CVPixelBuffer, time: Double)? {
             while let sample = output.copyNextSampleBuffer() {
                 if let buffer = CMSampleBufferGetImageBuffer(sample) {
                     return (buffer, CMSampleBufferGetPresentationTimeStamp(sample).seconds)
@@ -97,13 +99,24 @@ final class VideoSource: MediaSource {
             }
             return nil
         }
+        // Start a little before the first frame so the frame covering that moment is included. A screen recording
+        // can hold one frame for seconds: if reading began after it, go back further.
+        var lookback = 0.5
+        var (reader, output) = try open(from: max(0, first - lookback))
+        var coming = next(output)
+        while first - lookback > 0, let c = coming, c.time > first + 1e-3 {
+            reader.cancelReading()
+            lookback *= 16
+            (reader, output) = try open(from: max(0, first - lookback))
+            coming = next(output)
+        }
+        defer { reader.cancelReading() }
         var current: (buffer: CVPixelBuffer, time: Double)?
-        var coming = next()
         for (i, t) in times.enumerated() {
             try autoreleasepool {
                 while let c = coming, c.time <= t + 1e-4 {
                     current = c
-                    coming = next()
+                    coming = next(output)
                 }
                 guard let frame = current ?? coming else {
                     throw reader.error ?? MediaError.failed("This video ended early.")

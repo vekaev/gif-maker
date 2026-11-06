@@ -128,6 +128,7 @@ func speedText(_ x: Double) -> String {
     // MARK: opening
 
     func openPanel() {
+        guard !isExporting else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.movie, .video, .gif, .image]
         panel.allowsMultipleSelection = false
@@ -135,6 +136,7 @@ func speedText(_ x: Double) -> String {
     }
 
     func open(_ url: URL) {
+        guard !isExporting else { return }
         Task {
             do {
                 let media = try await Media.open(url)
@@ -176,6 +178,7 @@ func speedText(_ x: Double) -> String {
     }
 
     func close() {
+        guard !isExporting else { return }
         pause()
         stripTask?.cancel()
         source = nil; player = nil; output = nil; currentImage = nil; thumbnails = []
@@ -252,8 +255,8 @@ func speedText(_ x: Double) -> String {
                 let t = player.currentTime().seconds
                 if t.isFinite { time = t }
                 if time >= clip.end - 0.005 || player.timeControlStatus == .paused {
-                    time = clip.start
-                    player.seek(to: CMTime(seconds: clip.start, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                    // through the chase, so the seek gets to land instead of being replaced on every refresh
+                    seek(clip.start)
                     player.rate = Float(min(16, clip.rate(at: clip.start)))
                 } else if time < clip.start - 0.05 {
                     seek(clip.start)

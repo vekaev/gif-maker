@@ -88,12 +88,17 @@ final class Exporter {
     private func writeMP4(_ job: Job, _ plan: ExportPlan, to url: URL, _ progress: (Stage) -> Void) throws {
         let (w, h) = plan.size, renderer = Renderer.shared
         let writer = try MP4Writer(url: url, width: w, height: h, fps: plan.fps, silentTrack: job.settings.silentTrack)
-        try job.source.read(times: plan.times) { i, image in
-            try check()
-            try writer.add(renderer.frame(image, crop: job.crop, size: CGSize(width: w, height: h), adjustments: job.adjustments, seed: i + 1))
-            progress(.frames(Double(i + 1) / Double(plan.frames)))
+        do {
+            try job.source.read(times: plan.times) { i, image in
+                try check()
+                try writer.add(renderer.frame(image, crop: job.crop, size: CGSize(width: w, height: h), adjustments: job.adjustments, seed: i + 1))
+                progress(.frames(Double(i + 1) / Double(plan.frames)))
+            }
+            try writer.finish()
+        } catch {
+            writer.cancel()
+            throw error
         }
-        try writer.finish()
     }
 
     /// WebM. A sticker has a size limit: frames are kept and the bitrate stepped down until it fits.

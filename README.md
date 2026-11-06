@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/icon.svg" width="112" alt="GIF Maker icon" />
+<img src="docs/icon.png" width="112" alt="GIF Maker icon" />
 
 # GIF Maker
 
