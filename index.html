@@ -19,18 +19,31 @@
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   body { margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
-  header { padding: 10px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex: none; }
+  header { position: relative; padding: 8px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: center; flex: none; }
+  header #format { flex: none; }
+  #export { flex: none; min-width: 150px; width: auto; padding: 7px 16px; }
+  #status { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  #error { flex: none; width: 100%; margin: 0; padding: 6px 20px; background: rgba(229,72,77,.12); font-size: 13px; }
+  #progress { position: absolute; left: 0; right: 0; bottom: -2px; width: 100%; height: 3px; border: 0; }
   header h1 { font-size: 16px; margin: 0; font-weight: 600; }
   header .hint { color: var(--muted); font-size: 12px; }
-  header .gh { margin-left: auto; color: var(--muted); font-size: 12px; text-decoration: none; }
+  header .gh { flex: none; color: var(--muted); font-size: 12px; text-decoration: none; }
   header .gh:hover { color: var(--text); }
-  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 12px 20px; }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 12px var(--side, 380px); gap: 2px; padding: 12px 20px; }
+  #resizer { cursor: col-resize; position: relative; touch-action: none; }
+  #resizer::after { content: ''; position: absolute; top: 50%; left: 4px; width: 4px; height: 44px; margin-top: -22px; border-radius: 2px; background: var(--line); }
+  #resizer:hover::after, #resizer.on::after { background: var(--accent); }
   main > section { min-height: 0; display: flex; }
   main > section > .panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   main > aside { min-height: 0; overflow-y: auto; }
   @media (max-width: 900px) {
     body { height: auto; overflow: auto; }
     main { grid-template-columns: 1fr; }
+    #resizer { display: none; }
+    header { flex-wrap: wrap; }
+    header .hint, header .gh { display: none; }
+    header #export { flex: 1; }
+    #status { flex-basis: 100%; order: 3; text-align: left; }
     main > section > .panel { min-height: 60vh; }
   }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
@@ -46,7 +59,12 @@
   #modes { margin-bottom: 10px; }
   .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
   .row label { width: 96px; flex: none; color: var(--muted); }
-  .row input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 18px; background: transparent; cursor: pointer; }
+  /* the filled part runs from zero to the thumb, so two-way sliders read as two-way */
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--line) var(--a, 0%), var(--accent) var(--a, 0%), var(--accent) var(--b, 0%), var(--line) var(--b, 0%)); }
+  input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--line) var(--a, 0%), var(--accent) var(--a, 0%), var(--accent) var(--b, 0%), var(--line) var(--b, 0%)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.25); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.25); }
   .row output { width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
   .check { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--muted); cursor: pointer; }
   .check input { accent-color: var(--accent); }
@@ -59,7 +77,7 @@
   .seg button.on, #filters button.on { border-color: var(--accent); background: var(--accent); color: #fff; }
   #filters { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
   #filters button { text-align: left; font-size: 13px; padding: 6px 8px; }
-  #out { max-width: 100%; max-height: 30vh; width: auto; height: auto; display: block; margin: 0 auto; border-radius: 6px; background: #000; }
+  #out { width: 100%; height: auto; max-height: 62vh; object-fit: contain; display: block; margin: 0 auto; border-radius: 6px; background: #000; }
   #timeline { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
   #play { flex: none; width: 40px; height: 40px; }
   /* QuickTime-style trimmer: a filmstrip, a yellow frame with handles, and a playhead */
@@ -87,18 +105,28 @@
   #error { color: #e5484d; }
   .item { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
   .item:first-child { border-top: 0; padding-top: 0; }
-  .item .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; background: #000; display: block; }
+  .item .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; background: #000; color: #999; font-size: 11px; display: flex; align-items: center; justify-content: center; }
   .item .name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .item a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  .item a { color: var(--accent); text-decoration: none; font-size: 16px; padding: 0 4px; }
   .item button { padding: 2px 8px; }
 </style>
 </head>
 <body>
 <header>
   <h1>GIF Maker</h1>
-  <span class="hint">Runs in your browser. Your files never leave your computer.</span>
+  <span class="hint">Your files stay on your computer.</span>
+  <span id="status" role="status"></span>
+  <select id="format" aria-label="Format">
+    <option value="gif" selected>GIF</option>
+    <option value="mp4">MP4 video</option>
+    <option value="webm">WebM video</option>
+    <option value="sticker">Telegram sticker</option>
+  </select>
+  <button class="primary" id="export" disabled>Download GIF</button>
   <a class="gh" href="https://github.com/vekaev/gif-maker">GitHub ↗</a>
+  <progress id="progress" value="0" max="1" hidden></progress>
 </header>
+<p class="warn" id="error" hidden></p>
 <main>
   <section>
     <div class="panel">
@@ -124,10 +152,12 @@
           </div>
         </div>
         <div id="timeInfo" class="muted"><span id="clock">0.0 s</span><span id="trimInfo"></span></div>
-        <p class="muted" id="viewHint">Drag the frame to move it. Scroll or use the Size slider to zoom.</p>
+        <p class="muted" id="viewHint">Drag the frame to move it. Scroll or use the Zoom slider to zoom.</p>
       </div>
     </div>
   </section>
+
+  <div id="resizer" title="Drag to resize. Double-click to reset." role="separator" aria-orientation="vertical"></div>
 
   <aside>
     <div class="panel" id="previewPanel">
@@ -136,14 +166,14 @@
     </div>
 
     <div class="panel">
-      <h2>Filter</h2>
+      <h2>Look</h2>
       <div id="filters"></div>
       <div class="row"><label>Grain</label><input id="grain" type="range" min="0" max="30" value="0"><output></output></div>
       <p class="muted">Grain barely compresses in a GIF: even a little makes the file 5–8× bigger.</p>
     </div>
 
     <div class="panel">
-      <h2>Frame</h2>
+      <h2>Crop</h2>
       <div class="seg" id="aspects">
         <button data-a="1" class="on">1:1</button>
         <button data-a="0.8">4:5</button>
@@ -151,7 +181,7 @@
         <button data-a="1.7778">16:9</button>
         <button data-a="0">Original</button>
       </div>
-      <div class="row"><label>Size</label><input id="size" type="range" min="20" max="100" value="100"><output id="sizeV">100%</output></div>
+      <div class="row"><label>Zoom</label><input id="size" type="range" min="20" max="100" value="100"><output id="sizeV">100%</output></div>
       <div class="row">
         <button data-snap="left">← Left edge</button>
         <button data-snap="center">Center</button>
@@ -171,16 +201,16 @@
 
     <div class="panel">
       <h2>Speed</h2>
-      <div class="row"><label>Whole clip</label><input id="speed" type="range" min="-300" max="400" value="0"><output id="speedV">1×</output></div>
+      <div class="row"><label>Whole clip</label><input id="speed" type="range" min="-400" max="400" value="0" data-default="0"><output id="speedV">1×</output></div>
       <div class="row">
         <button id="addPart">＋ Speed up a part</button>
         <button id="fit3" hidden>Fit into 3 s</button>
       </div>
       <div id="partEditor" hidden>
-        <div class="row"><label>This part</label><input id="partSpeed" type="range" min="-200" max="300" value="100"><output id="partSpeedV">2×</output></div>
+        <div class="row"><label>This part</label><input id="partSpeed" type="range" min="-300" max="300" value="100" data-zero="0"><output id="partSpeedV">2×</output></div>
         <div class="row">
-          <button id="partFrom">From here</button>
-          <button id="partTo">To here</button>
+          <button id="partFrom">Starts here</button>
+          <button id="partTo">Ends here</button>
           <button id="partDelete">Delete</button>
         </div>
         <p class="muted" id="partInfo"></p>
@@ -190,11 +220,11 @@
 
     <div class="panel">
       <h2>Light & color</h2>
-      <div class="row"><label>Exposure</label><input id="exposure" type="range" min="-100" max="150" value="0"><output></output></div>
-      <div class="row"><label>Shadows</label><input id="shadows" type="range" min="0" max="100" value="0"><output></output></div>
-      <div class="row"><label>Contrast</label><input id="contrast" type="range" min="-50" max="100" value="0"><output></output></div>
-      <div class="row"><label>Saturation</label><input id="saturation" type="range" min="0" max="200" value="100"><output></output></div>
-      <div class="row"><label>Warmth</label><input id="warmth" type="range" min="-50" max="50" value="0"><output></output></div>
+      <div class="row"><label>Exposure</label><input id="exposure" type="range" min="-150" max="150" value="0" data-default="0"><output></output></div>
+      <div class="row"><label>Shadows</label><input id="shadows" type="range" min="-100" max="100" value="0" data-default="0"><output></output></div>
+      <div class="row"><label>Contrast</label><input id="contrast" type="range" min="-100" max="100" value="0" data-default="0"><output></output></div>
+      <div class="row"><label>Saturation</label><input id="saturation" type="range" min="-100" max="100" value="0" data-default="0"><output></output></div>
+      <div class="row"><label>Warmth</label><input id="warmth" type="range" min="-50" max="50" value="0" data-default="0"><output></output></div>
       <div class="row">
         <button id="auto">✨ Auto</button>
         <button id="reset">Reset</button>
@@ -202,28 +232,17 @@
     </div>
 
     <div class="panel">
-      <h2>Export</h2>
-      <div class="row"><label>Format</label>
-        <select id="format">
-          <option value="gif" selected>GIF</option>
-          <option value="mp4">MP4 (H.264)</option>
-          <option value="webm">WebM (VP9)</option>
-          <option value="sticker">Telegram sticker (WebM)</option>
-        </select>
-      </div>
+      <h2>Export settings</h2>
       <p class="muted" id="formatHint"></p>
-      <div class="row" id="widthRow"><label>Width</label><input id="width" type="range" min="240" max="1920" step="20" value="600"><output id="widthV">600</output></div>
-      <div class="row" id="fpsRow"><label>Frames/s</label><input id="fps" type="range" min="6" max="60" value="15"><output id="fpsV">15</output></div>
-      <label class="check" id="audioRow"><input id="audio" type="checkbox" checked> Silent sound track (so Telegram sends it as a video, not a GIF)</label>
+      <div class="row" id="widthRow"><label>Width, px</label><input id="width" type="range" min="240" max="1920" step="20" value="600"><output id="widthV">600</output></div>
+      <div class="row" id="fpsRow"><label>Frame rate</label><input id="fps" type="range" min="6" max="60" value="15"><output id="fpsV">15 fps</output></div>
+      <label class="check" id="audioRow"><input id="audio" type="checkbox" checked> Add a silent sound track (Telegram then sends it as a video, not a GIF)</label>
       <label class="check" id="ditherRow"><input id="dither" type="checkbox" checked> Smooth gradients (dithering)</label>
       <p class="muted" id="estimate"></p>
-      <button class="primary" id="export" disabled>Make GIF</button>
-      <progress id="progress" value="0" max="1" hidden></progress>
-      <p class="muted" id="error" hidden></p>
     </div>
 
     <div class="panel" id="historyPanel" hidden>
-      <h2>Your exports</h2>
+      <h2>Recent downloads</h2>
       <div id="history"></div>
     </div>
   </aside>
@@ -268,7 +287,7 @@ const frameOf = (m) => m instanceof FrameClip ? m.frame : m;
 const view = $('view'), vctx = view.getContext('2d');
 const out = $('out'), octx = out.getContext('2d');
 
-let fileName = 'video';
+let fileName = 'video', sourceFile = null;
 let aspect = 1;           // width / height of the crop, 0 = source aspect
 let crop = { x: 0, y: 0, w: 0, h: 0 };   // in source pixels
 let range = { start: 0, end: 0 };
@@ -281,12 +300,12 @@ let exporting = false;
 // Grain is left to the slider: per-frame noise barely compresses and multiplies the GIF size.
 const FILTERS = {
   color:      { name: 'Color' },
-  mono:       { name: 'iPhone Mono', mix: [0.299, 0.587, 0.114] },
-  silvertone: { name: 'iPhone Silvertone', mix: [0.30, 0.59, 0.11], exp: 0.2, black: 0.02, s: 0.35, tint: [-5, 0, 7] },
-  noir:       { name: 'iPhone Noir', mix: [0.45, 0.50, 0.05], black: 0.08, white: 0.92, s: 0.7 },
-  leica:      { name: 'Leica Monochrom', mix: [0.33, 0.50, 0.17], black: 0.015, s: 0.2 },
-  leicaHC:    { name: 'Leica High Contrast', mix: [0.30, 0.59, 0.11], black: 0.07, white: 0.93, s: 0.6 },
-  acros:      { name: 'Fuji Acros', mix: [0.46, 0.48, 0.06], black: 0.03, white: 1.06, s: 0.3 },
+  mono:       { name: 'iPhone Mono', slug: 'iphone-mono', mix: [0.299, 0.587, 0.114] },
+  silvertone: { name: 'iPhone Silvertone', slug: 'iphone-silvertone', mix: [0.30, 0.59, 0.11], exp: 0.2, black: 0.02, s: 0.35, tint: [-5, 0, 7] },
+  noir:       { name: 'iPhone Noir', slug: 'iphone-noir', mix: [0.45, 0.50, 0.05], black: 0.08, white: 0.92, s: 0.7 },
+  leica:      { name: 'Leica Monochrom', slug: 'leica-monochrom', mix: [0.33, 0.50, 0.17], black: 0.015, s: 0.2 },
+  leicaHC:    { name: 'Leica High Contrast', slug: 'leica-high-contrast', mix: [0.30, 0.59, 0.11], black: 0.07, white: 0.93, s: 0.6 },
+  acros:      { name: 'Fuji Acros', slug: 'fuji-acros', mix: [0.46, 0.48, 0.06], black: 0.03, white: 1.06, s: 0.3 },
 };
 let filter = 'color';
 for (const [key, f] of Object.entries(FILTERS)) {
@@ -436,11 +455,21 @@ function showError(message) {
   $('error').hidden = !message;
 }
 
+// Names like "clip-leicaHC-600x600-sticker-512x512.gif" pile up when an export comes back in as a source,
+// so what this app added is taken off again.
+function cleanName(name) {
+  let base = name.replace(/\.[^.]+$/, '');
+  const added = /-(\d+x\d+|sticker|telegram-sticker|mono|silvertone|noir|leica|leicaHC|acros|iphone-mono|iphone-silvertone|iphone-noir|leica-monochrom|leica-high-contrast|fuji-acros)( \(\d+\))?$/;
+  while (added.test(base)) base = base.replace(added, '');
+  return base;
+}
+
 function load(file) {
-  fileName = file.name.replace(/\.[^.]+$/, '');
+  fileName = cleanName(file.name);
   showError('');
+  sourceFile = null;
   if (file.type.startsWith('image/')) loadImage(file);
-  else loadSrc(URL.createObjectURL(file));
+  else { sourceFile = file; loadSrc(URL.createObjectURL(file)); }
 }
 
 function loadSrc(src) {
@@ -552,7 +581,7 @@ function outSize() {
 
 function sizeOutput() {
   const s = outSize();
-  out.width = Math.min(s.w, 360); out.height = Math.round(out.width * s.h / s.w);
+  out.width = Math.min(s.w, 540); out.height = Math.round(out.width * s.h / s.w);
   estimate();
 }
 
@@ -573,7 +602,7 @@ document.querySelectorAll('[data-snap]').forEach((b) => b.onclick = () => {
 // cropped original on the left and the result on the right of a line you drag.
 let mode = 'crop', split = 0.5;
 const HINTS = {
-  crop: 'Drag the frame to move it. Scroll or use the Size slider to zoom.',
+  crop: 'Drag the frame to move it. Scroll or use the Zoom slider to zoom.',
   result: 'The finished picture. Drag to move the crop, scroll to zoom.',
   compare: 'Drag the line: before on the left, after on the right.',
 };
@@ -618,6 +647,24 @@ view.onwheel = (e) => {
   const v = Math.max(20, Math.min(100, +$('size').value - Math.sign(e.deltaY) * 3));
   $('size').value = v; $('size').oninput();
 };
+
+// ---------- resizable sidebar ----------
+const SIDE_DEFAULT = 380;
+const setSide = (w) => {
+  const main = document.querySelector('main');
+  const clamped = Math.round(Math.max(280, Math.min(w, Math.min(1000, innerWidth - 360))));
+  main.style.setProperty('--side', clamped + 'px');
+  try { localStorage.setItem('gif-maker-side', clamped); } catch {}
+};
+try { const saved = +localStorage.getItem('gif-maker-side'); if (saved) setSide(saved); } catch {}
+$('resizer').onpointerdown = (e) => {
+  const el = e.currentTarget;
+  el.setPointerCapture(e.pointerId); el.classList.add('on');
+  const fromRight = document.querySelector('main').getBoundingClientRect().right - 20;
+  el.onpointermove = (m) => setSide(fromRight - m.clientX - 6);
+  el.onpointerup = () => { el.onpointermove = el.onpointerup = null; el.classList.remove('on'); };
+};
+$('resizer').ondblclick = () => setSide(SIDE_DEFAULT);
 
 // ---------- trim ----------
 const fmt = (t) => t.toFixed(1) + ' s';
@@ -705,6 +752,7 @@ $('partTo').onclick = () => movePartEdge('to');
 $('partDelete').onclick = () => { parts = parts.filter((p) => p !== selected); selectPart(null); };
 
 function speedChanged() {
+  paintSliders();
   $('speedV').textContent = speedText(speed);
   if (selected) {
     $('partSpeedV').textContent = speedText(selected.speed);
@@ -736,6 +784,7 @@ function updateRangeLabels() {
   }
   const length = outLength();
   const changed = Math.abs(length - (range.end - range.start)) > 0.05;
+  paintSliders();
   $('trimInfo').textContent = `${fmt(range.start)} – ${fmt(range.end)} · ${changed ? `plays ${fmt(length)}` : fmt(length)}`;
   $('fit3').hidden = !isSticker();
   placeTrim();
@@ -813,15 +862,35 @@ async function drawStrip() {
   strip.width = Math.round(r.width * dpr); strip.height = Math.round(r.height * dpr);
   const sctx = strip.getContext('2d');
   const th = strip.height, tw = Math.max(8, Math.round(th * m.videoWidth / m.videoHeight)), n = Math.ceil(strip.width / tw);
-  let source = m, probe = null;
+  const slotTime = (i) => Math.min(m.duration - 0.01, (i + 0.5) * tw / strip.width * m.duration);
+  const decoder = await openDecoder();
+  if (decoder) {
+    try {
+      let times = Array.from({ length: n }, (_, i) => slotTime(i));
+      // on a long clip decoding everything would take a while: keyframes are close enough for a strip
+      if (m.duration > 30) {
+        const { EncodedPacketSink } = await import(MEDIABUNNY);
+        const packets = new EncodedPacketSink(await decoder.input.getPrimaryVideoTrack());
+        times = await Promise.all(times.map(async (t) => (await packets.getKeyPacket(t))?.timestamp ?? t));
+      }
+      let i = 0;
+      for await (const sample of decoder.sink.samplesAtTimestamps(times)) {
+        if (token !== stripToken) { sample?.close(); break; }
+        if (sample) { sample.draw(sctx, i * tw, 0, tw, th); sample.close(); }
+        i++;
+      }
+      return;
+    } catch (e) { console.warn('filmstrip decoding failed', e); }
+    finally { decoder.input.dispose(); }
+  }
+  let probe = null;
   if (m === videoEl) {
     probe = document.createElement('video');
     probe.muted = true; probe.preload = 'auto'; probe.src = videoEl.currentSrc || videoEl.src;
     await new Promise((res) => { probe.onloadeddata = res; probe.onerror = res; });
-    source = probe;
   }
   for (let i = 0; i < n && token === stripToken; i++) {
-    const t = Math.min(m.duration - 0.01, (i + 0.5) * tw / strip.width * m.duration);
+    const t = slotTime(i);
     let img;
     if (probe) {
       await new Promise((res) => { const done = () => { clearTimeout(timer); res(); }; const timer = setTimeout(done, 1500); probe.addEventListener('seeked', done, { once: true }); probe.currentTime = t; });
@@ -829,19 +898,21 @@ async function drawStrip() {
     } else img = m.frameAt(t);
     sctx.drawImage(img, i * tw, 0, tw, th);
   }
-  if (probe) probe.removeAttribute('src');
+  if (probe) { probe.removeAttribute('src'); probe.load(); }
 }
 new ResizeObserver(() => { clearTimeout(drawStrip.timer); drawStrip.timer = setTimeout(drawStrip, 150); }).observe(track);
 
 // ---------- colour ----------
 const colorIds = ['exposure', 'shadows', 'contrast', 'saturation', 'warmth', 'grain'];
-const defaults = { exposure: 0, shadows: 0, contrast: 0, saturation: 100, warmth: 0, grain: 0 };
+const defaults = { exposure: 0, shadows: 0, contrast: 0, saturation: 0, warmth: 0, grain: 0 };
 let P, version = 0;
 
 function rebuild() {
   const p = Object.fromEntries(colorIds.map((id) => [id, +$(id).value]));
   const f = FILTERS[filter];
-  const gain = Math.pow(2, p.exposure / 100 + (f.exp || 0)), gamma = 1 / (1 + p.shadows / 100), c = 1 + p.contrast / 100;
+  const gain = Math.pow(2, p.exposure / 100 + (f.exp || 0)), c = 1 + p.contrast / 100;
+  // shadows: right opens them up, left deepens them
+  const gamma = p.shadows >= 0 ? 1 / (1 + p.shadows / 100) : 1 - p.shadows / 100;
   const black = f.black || 0, white = f.white || 1;
   const lut = new Uint8ClampedArray(256), tr = new Uint8ClampedArray(256), tg = new Uint8ClampedArray(256), tb = new Uint8ClampedArray(256);
   for (let i = 0; i < 256; i++) {
@@ -855,10 +926,26 @@ function rebuild() {
     const mid = 4 * (i / 255) * (1 - i / 255), t = f.tint || [0, 0, 0];
     tr[i] = i + t[0] * mid; tg[i] = i + t[1] * mid; tb[i] = i + t[2] * mid;
   }
-  P = { lut, mix: f.mix || null, sat: p.saturation / 100, warm: p.warmth * 0.6, tr, tg, tb, grain: p.grain * 0.8 };
+  P = { lut, mix: f.mix || null, sat: 1 + p.saturation / 100, warm: p.warmth * 0.6, tr, tg, tb, grain: p.grain * 0.8 };
   version++;
-  colorIds.forEach((id) => $(id).nextElementSibling.textContent = $(id).value);
+  colorIds.forEach((id) => { const v = +$(id).value; $(id).nextElementSibling.textContent = v > 0 ? `+${v}` : `${v}`; });
+  paintSliders();
 }
+
+// Sliders fill from zero to the thumb. Double-click puts one with a default back on it.
+function paintSliders() {
+  document.querySelectorAll('input[type=range]').forEach((el) => {
+    const min = +el.min, max = +el.max, at = (v) => (v - min) / (max - min) * 100;
+    const zero = at(Math.max(min, Math.min(max, +(el.dataset.zero ?? 0)))), v = at(+el.value);
+    el.style.setProperty('--a', Math.min(zero, v) + '%');
+    el.style.setProperty('--b', Math.max(zero, v) + '%');
+  });
+}
+document.addEventListener('input', (e) => { if (e.target.matches('input[type=range]')) paintSliders(); });
+document.addEventListener('dblclick', (e) => {
+  const el = e.target;
+  if (el.matches?.('input[type=range][data-default]')) { el.value = el.dataset.default; el.oninput?.(); paintSliders(); }
+});
 colorIds.forEach((id) => $(id).oninput = rebuild);
 $('reset').onclick = () => { colorIds.forEach((id) => $(id).value = defaults[id]); setFilter('color'); };
 
@@ -876,7 +963,7 @@ $('auto').onclick = () => {
   $('exposure').value = Math.round(e * 100);
   $('shadows').value = Math.round(s * 100);
   $('contrast').value = 12;
-  if (filter === 'color') $('saturation').value = 110;
+  if (filter === 'color') $('saturation').value = 10;
   rebuild();
 };
 
@@ -931,28 +1018,34 @@ function drawResultView(frame, compare) {
   label('AFTER', W - 8 * u, 'right');
 }
 // Redraw only when the frame, the crop or the settings changed, so a paused video costs nothing.
-let lastKey = '';
+let lastKey = '', nextDraw = 0;
 function draw() {
   if (video.readyState >= 2 && !exporting && !video.seeking) {
     if (video.currentTime >= range.end || video.currentTime < range.start - 0.05) video.currentTime = range.start;
     const key = `${video.currentTime}|${crop.x}|${crop.y}|${crop.w}|${crop.h}|${out.width}|${version}|${mode}|${split}`;
-    if (key !== lastKey) {
+    // while playing, keep at least half of the main thread free: slow frames are skipped, not queued
+    if (key !== lastKey && (video.paused || performance.now() >= nextDraw)) {
       lastKey = key;
+      const began = performance.now();
       const frame = frameOf(video);
       if (mode === 'crop') drawCropView(frame);
       else drawResultView(frame, mode === 'compare');
 
-      octx.imageSmoothingQuality = 'high';
-      octx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
-      const img = octx.getImageData(0, 0, out.width, out.height);
-      adjust(img.data, P, (Math.random() * 2 ** 31) | 0);
-      applyTint(img.data, P);
-      octx.putImageData(img, 0, 0);
+      if (mode === 'crop') { // in the other views the big picture is the preview
+        octx.imageSmoothingQuality = 'high';
+        octx.drawImage(frame, crop.x, crop.y, crop.w, crop.h, 0, 0, out.width, out.height);
+        const img = octx.getImageData(0, 0, out.width, out.height);
+        adjust(img.data, P, (Math.random() * 2 ** 31) | 0);
+        applyTint(img.data, P);
+        octx.putImageData(img, 0, 0);
+      }
 
       placePlayhead();
       $('clock').textContent = fmt(video.currentTime);
       const rate = Math.min(16, rateAt(video.currentTime));
       if (Math.abs(video.playbackRate - rate) > 1e-3) video.playbackRate = rate;
+      const now = performance.now();
+      nextDraw = now + (now - began);
     }
   }
   requestAnimationFrame(draw);
@@ -962,13 +1055,13 @@ function draw() {
 const MP4MUX = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.1/build/mp4-muxer.mjs';
 const WEBMMUX = 'https://cdn.jsdelivr.net/npm/webm-muxer@5.1.4/build/webm-muxer.mjs';
 const FORMATS = {
-  gif:     { label: 'GIF', ext: 'gif', type: 'image/gif',
+  gif:     { label: 'GIF', action: 'GIF', ext: 'gif', type: 'image/gif',
              hint: 'Plays everywhere. Up to 256 colours, so files are big; Telegram turns it into a silent video.' },
-  mp4:     { label: 'MP4', ext: 'mp4', type: 'video/mp4',
+  mp4:     { label: 'MP4', action: 'MP4', ext: 'mp4', type: 'video/mp4',
              hint: 'Full colour, small file, plays everywhere. With the silent sound track Telegram sends it as a video; without it, as a GIF.' },
-  webm:    { label: 'WebM', ext: 'webm', type: 'video/webm',
+  webm:    { label: 'WebM', action: 'WebM', ext: 'webm', type: 'video/webm',
              hint: 'Full colour, small file, VP9. Good for the web and Discord.' },
-  sticker: { label: 'sticker', ext: 'webm', type: 'video/webm',
+  sticker: { label: 'Sticker', action: 'sticker', ext: 'webm', type: 'video/webm',
              hint: 'Telegram video sticker: WebM VP9, 512 px, up to 3 s and 256 KB, no sound. Longer clips: trim, slide the yellow bar, or speed up. Then send the file to @Stickers with /newvideo.' },
 };
 const STICKER_MAX_S = 3, STICKER_MAX_BYTES = 256 * 1024;
@@ -990,9 +1083,9 @@ function exportPlan() {
 function estimate() {
   if (!video.duration) return;
   const p = exportPlan();
-  let text = `${p.s.w}×${p.s.h}, ${p.n} frames at ${p.fps}/s, ${p.length.toFixed(1)} s`;
+  let text = `${p.s.w}×${p.s.h} px · ${p.length.toFixed(1)} s · ${p.fps} fps · ${p.n} frames`;
   if (p.fmt !== 'sticker' && p.s.w < +$('width').value) text += ' (the full size of the cropped frame; no upscaling)';
-  if (p.fmt === 'gif' && +$('fps').value > 50) text += ' (GIF tops out at 50 frames/s)';
+  if (p.fmt === 'gif' && +$('fps').value > 50) text += ' (GIF tops out at 50 fps)';
   $('estimate').textContent = text;
   if (p.fmt === 'sticker' && p.total > STICKER_MAX_S + 1e-6) {
     const warn = document.createElement('span');
@@ -1008,12 +1101,12 @@ function updateFormat() {
   $('ditherRow').hidden = fmt !== 'gif';
   $('widthRow').hidden = fmt === 'sticker';
   $('audioRow').hidden = fmt !== 'mp4' && fmt !== 'webm';
-  $('export').textContent = fmt === 'sticker' ? 'Make sticker' : `Make ${FORMATS[fmt].label}`;
+  $('export').textContent = `Download ${FORMATS[fmt].action}`;
   if (video.duration) { setRange(range.start, range.end, 'start'); sizeOutput(); }
 }
 $('format').onchange = updateFormat;
 $('width').oninput = () => { $('widthV').textContent = $('width').value; sizeOutput(); };
-$('fps').oninput = () => { $('fpsV').textContent = $('fps').value; estimate(); };
+$('fps').oninput = () => { $('fpsV').textContent = `${$('fps').value} fps`; estimate(); };
 
 function seekTo(t) {
   return new Promise((resolve) => {
@@ -1024,6 +1117,57 @@ function seekTo(t) {
   });
 }
 
+// Seeking makes the browser decode from the previous keyframe for every single frame, which is what made
+// exports crawl. So frames are decoded once, in order, with WebCodecs (mediabunny finds them in the file
+// and applies edit lists). If that can't be used, it falls back to seeking.
+const MEDIABUNNY = 'https://cdn.jsdelivr.net/npm/mediabunny@1.65.2/dist/bundles/mediabunny.min.mjs';
+async function openDecoder() {
+  if (!sourceFile || video !== videoEl || typeof VideoDecoder === 'undefined') return null;
+  try {
+    const { Input, BlobSource, ALL_FORMATS, VideoSampleSink } = await import(MEDIABUNNY);
+    const input = new Input({ source: new BlobSource(sourceFile), formats: ALL_FORMATS });
+    const track = await input.getPrimaryVideoTrack();
+    // rotated or anamorphic video is left to the <video> element, which already applies all of that
+    if (!track || track.rotation !== 0 || track.displayWidth !== video.videoWidth || track.displayHeight !== video.videoHeight || !(await track.canDecode())) {
+      input.dispose();
+      return null;
+    }
+    return { input, sink: new VideoSampleSink(track) };
+  } catch (e) { console.warn('no fast decoder, seeking instead', e); return null; }
+}
+
+// Yields one RGBA array per time (ascending) for the current crop at the given size.
+async function* readFrames(times, w, h) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  let i = 0;
+  const decoder = await openDecoder();
+  window.gifMaker.fastDecode = !!decoder;
+  if (decoder) {
+    try {
+      for await (const sample of decoder.sink.samplesAtTimestamps(times)) {
+        if (!sample) break; // before the first frame: the seeking path below handles it
+        sample.draw(ctx, crop.x, crop.y, crop.w, crop.h, 0, 0, w, h);
+        sample.close();
+        i++;
+        yield ctx.getImageData(0, 0, w, h).data;
+      }
+    } catch (e) {
+      console.warn('decoding failed, seeking instead', e);
+      window.gifMaker.fastDecode = false;
+    } finally {
+      decoder.input.dispose();
+    }
+  }
+  for (; i < times.length; i++) {
+    if (video instanceof FrameClip) ctx.drawImage(video.frameAt(times[i]), crop.x, crop.y, crop.w, crop.h, 0, 0, w, h);
+    else { await seekTo(times[i]); ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, w, h); }
+    yield ctx.getImageData(0, 0, w, h).data;
+  }
+}
+
 async function makeWorker() {
   try {
     return new Worker(URL.createObjectURL(new Blob([await workerSource()], { type: 'text/javascript' })));
@@ -1032,7 +1176,7 @@ async function makeWorker() {
 
 // Frames are grabbed here (seek + draw needs the video element) and encoded in a worker,
 // at most three in flight so memory stays flat on long clips.
-function encodeInWorker(worker, cfg, n, grab, onProgress) {
+function encodeInWorker(worker, cfg, n, frames, onProgress) {
   return new Promise(async (resolve, reject) => {
     let done = 0, sent = 0;
     const waiters = [];
@@ -1043,9 +1187,8 @@ function encodeInWorker(worker, cfg, n, grab, onProgress) {
     };
     worker.postMessage({ type: 'start', ...cfg });
     try {
-      for (let i = 0; i < n; i++) {
-        const d = await grab(i);
-        worker.postMessage({ type: 'frame', buffer: d.buffer, index: i }, [d.buffer]);
+      for await (const d of frames) {
+        worker.postMessage({ type: 'frame', buffer: d.buffer, index: sent }, [d.buffer]);
         sent++;
         if (sent - done >= 3) await new Promise((r) => waiters.push(r));
       }
@@ -1054,18 +1197,19 @@ function encodeInWorker(worker, cfg, n, grab, onProgress) {
   });
 }
 
-async function encodeHere(cfg, n, grab, onProgress) {
+async function encodeHere(cfg, n, frames, onProgress) {
   const gif = GIFEncoder();
-  for (let i = 0; i < n; i++) {
-    encodeFrame(gif, await grab(i), cfg, i);
-    onProgress((i + 1) / n);
+  let i = 0;
+  for await (const d of frames) {
+    encodeFrame(gif, d, cfg, i++);
+    onProgress(i / n);
     await new Promise((r) => setTimeout(r));
   }
   gif.finish();
   return gif.bytes();
 }
 
-async function encodeGif(plan, grab, onProgress) {
+async function encodeGif(plan, onProgress) {
   const { s, fps, n, times } = plan;
   // One palette for the whole clip, so colours don't jump between frames.
   let palette;
@@ -1075,15 +1219,13 @@ async function encodeGif(plan, grab, onProgress) {
     // Sample up to 32 frames across the clip at a small size: enough that a fade or a change of light
     // has palette colours close together (dithering then blends between them), and still quick.
     const sw = Math.min(s.w, 160), sh = Math.max(1, Math.round(sw * s.h / s.w));
-    const small = document.createElement('canvas'); small.width = sw; small.height = sh;
-    const sctx = small.getContext('2d', { willReadFrequently: true });
+    setStatus('Choosing colours…');
     const k = Math.min(32, n), frame = sw * sh * 4, all = new Uint8ClampedArray(frame * k);
-    for (let j = 0; j < k; j++) {
-      await seekTo(times[Math.round(j * (n - 1) / Math.max(1, k - 1))]);
-      sctx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, sw, sh);
-      const d = sctx.getImageData(0, 0, sw, sh).data;
+    const sampled = Array.from({ length: k }, (_, j) => times[Math.round(j * (n - 1) / Math.max(1, k - 1))]);
+    let j = 0;
+    for await (const d of readFrames(sampled, sw, sh)) {
       adjust(d, P, j + 1);
-      all.set(d, j * frame);
+      all.set(d, j++ * frame);
     }
     palette = quantize(all, 256);
   }
@@ -1092,20 +1234,22 @@ async function encodeGif(plan, grab, onProgress) {
   const worker = await makeWorker();
   window.gifMaker.usedWorker = !!worker;
   if (worker) {
-    try { bytes = await encodeInWorker(worker, cfg, n, grab, onProgress); }
+    try { bytes = await encodeInWorker(worker, cfg, n, readFrames(times, s.w, s.h), onProgress); }
     catch (e) { console.warn('worker encode failed, falling back to the page', e); }
     worker.terminate();
   }
-  if (!bytes) { onProgress(0); bytes = await encodeHere(cfg, n, grab, onProgress); }
+  if (!bytes) { onProgress(0); bytes = await encodeHere(cfg, n, readFrames(times, s.w, s.h), onProgress); }
   return bytes;
 }
 
 // The first codec string the browser can encode at this size wins.
-async function pickCodec(candidates, base) {
+async function pickCodec(candidates, base, acceleration = 'no-preference') {
   if (typeof VideoEncoder === 'undefined') throw new Error('This browser can’t encode video. Try Chrome, Edge or Safari 17+.');
-  for (const codec of candidates) {
-    const config = { ...base, codec };
-    try { if ((await VideoEncoder.isConfigSupported(config)).supported) return config; } catch {}
+  for (const hardwareAcceleration of new Set([acceleration, 'no-preference'])) {
+    for (const codec of candidates) {
+      const config = { ...base, codec, hardwareAcceleration };
+      try { if ((await VideoEncoder.isConfigSupported(config)).supported) return config; } catch {}
+    }
   }
   throw new Error('This browser can’t encode this format at this size. Try a smaller width or another format.');
 }
@@ -1132,13 +1276,13 @@ async function encodeSilence(codec, seconds) {
 }
 
 // WebCodecs encodes the frames, mp4-muxer / webm-muxer wrap them in a file.
-async function encodeVideo(plan, grab, onProgress, bitrate, withSound) {
+async function encodeVideo(plan, frames, onProgress, bitrate, withSound) {
   const { fmt, s, fps, n } = plan;
   const mp4 = fmt === 'mp4';
   const { Muxer, ArrayBufferTarget } = await import(mp4 ? MP4MUX : WEBMMUX);
   const base = { width: s.w, height: s.h, bitrate, framerate: fps, latencyMode: 'quality' };
   const config = mp4
-    ? await pickCodec(['avc1.640033', 'avc1.64002A', 'avc1.640028', 'avc1.4D0028', 'avc1.42E01F'], { ...base, avc: { format: 'avc' } })
+    ? await pickCodec(['avc1.640033', 'avc1.64002A', 'avc1.640028', 'avc1.4D0028', 'avc1.42E01F'], { ...base, avc: { format: 'avc' } }, 'prefer-hardware')
     : await pickCodec(['vp09.00.41.08', 'vp09.00.31.08', 'vp09.00.10.08'], base);
   const sound = withSound ? await encodeSilence(mp4 ? 'mp4a.40.2' : 'opus', n / fps) : null;
   const audio = sound && (mp4 ? { codec: 'aac', sampleRate: 48000, numberOfChannels: 1 } : { codec: 'A_OPUS', sampleRate: 48000, numberOfChannels: 1 });
@@ -1157,9 +1301,10 @@ async function encodeVideo(plan, grab, onProgress, bitrate, withSound) {
   canvas.width = s.w; canvas.height = s.h;
   const ctx = canvas.getContext('2d');
   const step = 1e6 / fps;
-  for (let i = 0; i < n; i++) {
+  let i = -1;
+  for await (const d of frames) {
+    i++;
     if (failure) throw failure;
-    const d = await grab(i);
     adjust(d, P, i * 7919 + 1);
     applyTint(d, P);
     ctx.putImageData(new ImageData(d, s.w, s.h), 0, 0);
@@ -1177,52 +1322,86 @@ async function encodeVideo(plan, grab, onProgress, bitrate, withSound) {
   return new Uint8Array(target.buffer);
 }
 
+// Status in the header, so it's always clear what the app is doing.
+function setStatus(text) { $('status').textContent = text; }
+
+function exportName(fmt, s) {
+  const look = FILTERS[filter].slug ? `-${FILTERS[filter].slug}` : '';
+  return fmt === 'sticker' ? `${fileName}${look}-telegram-sticker.webm` : `${fileName}${look}-${s.w}x${s.h}.${FORMATS[fmt].ext}`;
+}
+
+// A still of the current frame for the downloads list: animating dozens of full-size exports as
+// thumbnails keeps the machine busy for nothing.
+function makePoster(s) {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = Math.max(1, Math.round(128 * s.h / s.w));
+  const x = c.getContext('2d');
+  x.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, c.width, c.height);
+  const img = x.getImageData(0, 0, c.width, c.height);
+  adjust(img.data, P, 1);
+  applyTint(img.data, P);
+  x.putImageData(img, 0, 0);
+  return c.toDataURL('image/jpeg', 0.75);
+}
+
+function saveToDisk(item) {
+  const a = document.createElement('a');
+  a.href = urlFor(item); a.download = item.name;
+  document.body.append(a); a.click(); a.remove();
+}
+
 $('export').onclick = async () => {
   exporting = true;
   video.pause(); $('play').textContent = '▶︎';
   $('export').disabled = true;
-  $('error').hidden = true;
+  showError('');
+  const button = $('export'), idle = button.textContent;
   const prog = $('progress'); prog.hidden = false; prog.value = 0;
 
   const plan = exportPlan();
   const { fmt, s, fps, times } = plan;
-  const canvas = document.createElement('canvas');
-  canvas.width = s.w; canvas.height = s.h;
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingQuality = 'high';
-  const grab = async (i) => {
-    await seekTo(times[i]);
-    ctx.drawImage(frameOf(video), crop.x, crop.y, crop.w, crop.h, 0, 0, s.w, s.h);
-    return ctx.getImageData(0, 0, s.w, s.h).data;
+  const label = FORMATS[fmt].action;
+  const poster = makePoster(s);
+  const onProgress = (v) => {
+    prog.value = v;
+    const percent = `${Math.round(v * 100)}%`;
+    button.textContent = percent;
+    setStatus(`Making your ${label}… ${percent}`);
   };
-  const onProgress = (v) => prog.value = v;
+  setStatus(`Making your ${label}…`);
+  button.textContent = '0%';
   const t0 = performance.now();
 
   try {
     let bytes;
     if (fmt === 'gif') {
-      bytes = await encodeGif(plan, grab, onProgress);
+      bytes = await encodeGif(plan, onProgress);
     } else if (fmt === 'sticker') {
-      // aim under Telegram's 256 KB and step the bitrate down until it fits
-      const seconds = plan.n / fps;
+      // aim under Telegram's 256 KB and step the bitrate down until it fits; frames are kept for the retries
+      const seconds = plan.n / fps, kept = [];
+      async function* firstPass() { for await (const d of readFrames(times, s.w, s.h)) { kept.push(d.slice()); yield d; } }
+      async function* again() { for (const d of kept) yield d.slice(); }
       let bitrate = Math.floor(STICKER_MAX_BYTES * 8 * 0.85 / seconds);
       for (let attempt = 0; attempt < 4; attempt++) {
-        bytes = await encodeVideo(plan, grab, onProgress, bitrate);
+        bytes = await encodeVideo(plan, attempt ? again() : firstPass(), onProgress, bitrate);
         if (bytes.length <= STICKER_MAX_BYTES) break;
+        setStatus('Making it smaller for Telegram…');
         bitrate = Math.floor(bitrate * STICKER_MAX_BYTES / bytes.length * 0.85);
       }
     } else {
       // generous bitrate (about 0.2 bits per pixel per frame): the point is quality, the files stay small anyway
-      bytes = await encodeVideo(plan, grab, onProgress, Math.round(Math.max(2e6, s.w * s.h * fps * 0.2)), $('audio').checked);
+      bytes = await encodeVideo(plan, readFrames(times, s.w, s.h), onProgress, Math.round(Math.max(2e6, s.w * s.h * fps * 0.2)), $('audio').checked);
     }
-    const suffix = filter === 'color' ? '' : '-' + filter;
-    const name = `${fileName}${suffix}${fmt === 'sticker' ? '-sticker' : ''}-${s.w}x${s.h}.${FORMATS[fmt].ext}`;
-    await addExport({ id: Date.now(), name, fmt, blob: new Blob([bytes], { type: FORMATS[fmt].type }), seconds: (performance.now() - t0) / 1000 });
+    const item = { id: Date.now(), name: exportName(fmt, s), fmt, poster, blob: new Blob([bytes], { type: FORMATS[fmt].type }), seconds: (performance.now() - t0) / 1000 };
+    await addExport(item);
+    saveToDisk(item);
+    setStatus(`✓ Downloaded ${item.name} · ${sizeText(item.blob.size)} · took ${item.seconds.toFixed(1)} s`);
   } catch (e) {
     console.error(e);
-    $('error').textContent = e.message || String(e);
-    $('error').hidden = false;
+    setStatus('');
+    showError(e.message || String(e));
   }
+  button.textContent = idle;
   prog.hidden = true;
   $('export').disabled = false;
   exporting = false;
@@ -1268,7 +1447,7 @@ async function removeExport(id) {
 
 const urls = new Map();
 const urlFor = (item) => urls.get(item.id) || urls.set(item.id, URL.createObjectURL(item.blob)).get(item.id);
-const sizeText = (b) => b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1048576).toFixed(1)} MB`;
+function sizeText(b) { return b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1048576).toFixed(1)} MB`; }
 
 function renderExports() {
   const list = $('history');
@@ -1276,15 +1455,15 @@ function renderExports() {
     const row = document.createElement('div');
     row.className = 'item';
     const url = urlFor(item);
-    const thumb = document.createElement(item.fmt === 'gif' ? 'img' : 'video');
-    thumb.className = 'thumb'; thumb.src = url;
-    if (item.fmt !== 'gif') Object.assign(thumb, { muted: true, loop: true, autoplay: true, playsInline: true });
+    const thumb = document.createElement(item.poster ? 'img' : 'div');
+    thumb.className = 'thumb';
+    if (item.poster) thumb.src = item.poster; else thumb.textContent = FORMATS[item.fmt].label;
     const meta = document.createElement('div');
     const when = new Date(item.id).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     meta.innerHTML = `<div class="name"></div><div class="muted">${FORMATS[item.fmt].label} · ${sizeText(item.blob.size)} · ${when}</div>`;
     meta.firstChild.textContent = item.name; meta.firstChild.title = item.name;
     const link = document.createElement('a');
-    link.href = url; link.download = item.name; link.textContent = '⬇ Save';
+    link.href = url; link.download = item.name; link.textContent = '⬇'; link.title = 'Download again'; link.setAttribute('aria-label', 'Download again');
     const del = document.createElement('button');
     del.textContent = '✕'; del.title = 'Remove';
     del.onclick = () => { URL.revokeObjectURL(url); urls.delete(item.id); removeExport(item.id); };
@@ -1301,6 +1480,7 @@ store('readonly', (st) => st.getAll()).then((items) => {
 });
 
 updateFormat();
+paintSliders();
 
 rebuild();
 requestAnimationFrame(draw);

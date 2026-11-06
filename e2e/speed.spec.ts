@@ -12,7 +12,7 @@ test('the whole clip at 2× halves its length and keeps every moment', async ({ 
   await setSlider(page, 'end', 800) // 0–4 s
   await setSlider(page, 'speed', 100) // 2^(100/100) = 2×
   await expect(page.locator('#speedV')).toHaveText('2×')
-  await expect(page.locator('#estimate')).toContainText('30 frames at 15/s, 2.0 s')
+  await expect(page.locator('#estimate')).toContainText('2.0 s · 15 fps · 30 frames')
   await expect(page.locator('#trimInfo')).toContainText('plays 2.0 s')
   const gif = await gifInfo(page, (await exportFile(page)).url)
   expect(gif.frames).toBe(30)

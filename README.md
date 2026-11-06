@@ -47,6 +47,8 @@ crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-w
 - **See the result big, or side by side.** **Crop** shows the whole frame with the crop box. **Result**
   fills the main area with the finished picture (drag it to move the crop). **Before / After** puts the
   original on the left and the result on the right of a line you drag.
+- **One button at the top.** Pick the format, press **Download**: the header shows what's happening and
+  the file lands in your Downloads folder as soon as it's ready.
 - **Crop to any shape.** 1:1, 4:5, 9:16, 16:9 or the original. Drag the frame, scroll to zoom, or snap it to
   the left edge, the center or the right edge in one click. Everything outside the frame dims, so you see
   exactly what you'll get.
@@ -56,18 +58,21 @@ crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-w
 - **Speed it up, all of it or just a part.** One slider for the whole clip (⅛× to 16×). **＋ Speed up a
   part** adds a faster stretch at the playhead, shown as a blue band on the timeline with its own speed.
   The preview plays at those speeds, and the export follows them frame by frame.
-- **Fix the light.** Exposure, Shadows, Contrast, Saturation and Warmth, live as you drag. **✨ Auto** lifts
+- **Fix the light.** Exposure, Shadows, Contrast, Saturation and Warmth, each going both ways from a
+  centred zero (double-click a slider to reset it), live as you drag. **✨ Auto** lifts
   a dark clip so the highlights sit near white and the midtones open up. **Reset** puts it all back.
 - **Black-and-white film looks.** Six of them: iPhone Mono, Silvertone and Noir, Leica Monochrom and Leica
   High Contrast, Fuji Acros. Plus optional grain.
 - **Four formats.** GIF by default, or MP4, WebM and a ready-to-send Telegram video sticker. See
   [Formats](#formats).
-- **Your exports stay at hand.** Every file you make lands in **Your exports** with a moving thumbnail, its
-  size and time. Save any of them again later, even after a reload, or remove the ones you don't need.
+- **Your exports stay at hand.** Every file you make is also kept in **Recent downloads** with a thumbnail,
+  its size and time. Download any of them again later, even after a reload, or remove the ones you don't need.
+- **Room to look.** Drag the edge of the side panel to make it, and the preview in it, as big as you want.
 - **Full quality.** Frames come from the video at its original resolution and are scaled down once, with
   high-quality smoothing. It never upscales: ask for more pixels than the crop has and it tells you.
-- **Stays responsive.** GIF encoding runs in a background worker and the preview only redraws when
-  something changed, so a big HEVC screen recording doesn't freeze the tab.
+- **Fast.** Frames are decoded once, in order, with WebCodecs instead of seeking for each one: a 7.5-second
+  2880×1620 HEVC screen recording became a 600 px GIF in 2 s instead of 12 s. GIF encoding runs in a
+  background worker and the preview only redraws when something changed, so the tab doesn't freeze.
 
 ## Formats
 
@@ -138,7 +143,7 @@ frame. GIF Maker avoids both:
 ## Get started
 
 Open **[vekaev.github.io/gif-maker](https://vekaev.github.io/gif-maker/)**, drop a video on the page and
-press **Make GIF**.
+press **Download GIF**.
 
 Or run it from your own copy. It's a single HTML file, no build step:
 
@@ -153,8 +158,9 @@ It works opened straight from disk too.
 
 One `index.html`, plain JavaScript, no framework.
 
-- **Decoding:** the browser's `<video>` element for video, so anything your browser plays works (MP4,
-  MOV, HEVC, WebM…). GIFs and animated images are decoded frame by frame with `ImageDecoder`.
+- **Decoding:** the browser's `<video>` element for the preview, so anything your browser plays works (MP4,
+  MOV, HEVC, WebM…); exports decode in order with WebCodecs through
+  [mediabunny](https://github.com/Vanilagy/mediabunny). GIFs and animated images go through `ImageDecoder`.
 - **GIF:** [gifenc](https://github.com/mattdesl/gifenc) writes the file. Palette mapping, dithering and the
   colour pipeline are custom, and run in a Web Worker.
 - **MP4 / WebM:** [WebCodecs](https://developer.mozilla.org/docs/Web/API/WebCodecs_API) encodes, and
@@ -165,7 +171,7 @@ One `index.html`, plain JavaScript, no framework.
 ## Privacy
 
 Your files never leave your computer: they're read, processed and encoded on the page. The only network
-requests load the three libraries above from jsDelivr. Exports are kept in this browser's storage until
+requests load the libraries above from jsDelivr. Exports are kept in this browser's storage until
 you remove them or clear site data. No analytics, no cookies, no accounts.
 
 ## Development
@@ -201,8 +207,11 @@ clips in `e2e/fixtures` and checks the actual output files, not just the UI:
 - **MP4 / WebM / sticker:** codec, size, length and the sound track, read from the files themselves. Also
   that B&W survives into the video, that a GIF turns into a sticker, and that the sticker stays within
   Telegram's 512 px, 3 s and 256 KB.
-- **Exports list:** order, Save links, surviving a reload, removing.
-- **Layout:** fits the window with no page scroll, and works at phone width.
+- **Download:** the button stays on top, the file downloads by itself, clean names even for an export
+  brought back in, decoding in order and files cut with an edit list.
+- **Exports list:** order, download-again links, stills instead of playing thumbnails, surviving a reload,
+  removing.
+- **Layout:** fits the window with no page scroll, the resizable side panel, and phone width.
 
 **Git hooks** (husky): `pre-commit` runs the quick checks (the page's script parses, the README's files
 exist, CDN versions are pinned); `pre-push` runs the whole end-to-end suite.

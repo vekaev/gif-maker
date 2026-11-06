@@ -34,7 +34,7 @@ test.describe('a GIF as the source', () => {
   test('turns into a Telegram video sticker', async ({ page }) => {
     await page.selectOption('#format', 'sticker')
     const file = await exportFile(page)
-    expect(file.name).toBe('fade-sticker-512x512.webm')
+    expect(file.name).toBe('fade-telegram-sticker.webm')
     expect(file.size).toBeLessThanOrEqual(256 * 1024)
     const info = await videoInfo(page, file.url)
     expect(info).toMatchObject({ width: 512, height: 512, vp9: true, opus: false })

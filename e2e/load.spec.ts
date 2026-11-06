@@ -8,7 +8,7 @@ test('starts with a drop zone and nothing to export', async ({ page }) => {
   await expect(page.locator('#drop')).toContainText('Drop a video, GIF or photo here')
   await expect(page.locator('#stage')).toBeHidden()
   await expect(page.locator('#export')).toBeDisabled()
-  await expect(page.locator('#export')).toHaveText('Make GIF')
+  await expect(page.locator('#export')).toHaveText('Download GIF')
   await expect(page.locator('#historyPanel')).toBeHidden()
 })
 
@@ -29,7 +29,7 @@ test('loads an MP4 and shows it with a square crop', async ({ page }) => {
 test('loads a WebM too', async ({ page }) => {
   await loadVideo(page, 'bars.webm')
   expect((await state(page)).source).toEqual({ w: 1280, h: 720 })
-  await expect(page.locator('#estimate')).toContainText('600×600, 30 frames at 15/s, 2.0 s')
+  await expect(page.locator('#estimate')).toContainText('600×600 px · 2.0 s · 15 fps · 30 frames')
 })
 
 test('plays the clip in the preview', async ({ page }) => {

@@ -16,7 +16,7 @@ test('start and end sliders set the clip', async ({ page }) => {
   const { range } = await state(page)
   expect(range.start).toBeCloseTo(1)
   expect(range.end).toBeCloseTo(3.5)
-  await expect(page.locator('#estimate')).toContainText('38 frames at 15/s, 2.5 s')
+  await expect(page.locator('#estimate')).toContainText('2.5 s · 15 fps · 38 frames')
 })
 
 test('the start can never pass the end', async ({ page }) => {

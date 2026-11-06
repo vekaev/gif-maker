@@ -47,7 +47,7 @@ test('a black-and-white GIF is pure grey and uses many grey levels', async ({ pa
   await setSlider(page, 'end', 250) // 1 s
   await setSlider(page, 'width', 360)
   const file = await exportFile(page)
-  expect(file.name).toBe('bars-leica-360x360.gif')
+  expect(file.name).toBe('bars-leica-monochrom-360x360.gif')
   const gif = await gifInfo(page, file.url)
   expect(gif.allGrey).toBe(true)
   expect(gif.firstFrameLevels).toBeGreaterThan(60)
@@ -70,8 +70,8 @@ test('GIF frame rate tops out at 50 frames/s', async ({ page }) => {
   await setSlider(page, 'end', 200) // 1 s
   await setSlider(page, 'width', 240)
   await setSlider(page, 'fps', 60)
-  await expect(page.locator('#estimate')).toContainText('50 frames at 50/s')
-  await expect(page.locator('#estimate')).toContainText('GIF tops out at 50 frames/s')
+  await expect(page.locator('#estimate')).toContainText('50 fps · 50 frames')
+  await expect(page.locator('#estimate')).toContainText('GIF tops out at 50 fps')
   const gif = await gifInfo(page, (await exportFile(page)).url)
   expect(gif.frames).toBe(50)
   expect(gif.duration).toBeCloseTo(1, 2)

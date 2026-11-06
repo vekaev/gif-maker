@@ -26,6 +26,34 @@ test.describe('light and colour', () => {
     expect(grey(await previewColor(page, 50, 50))).toBeGreaterThan(100)
   })
 
+  test('exposure and shadows also go the other way, from a centred zero', async ({ page }) => {
+    await seek(page, 2.5) // mid grey, about 127
+    await setSlider(page, 'exposure', -100) // one stop down
+    let g = grey(await previewColor(page, 50, 50))
+    expect(g).toBeGreaterThan(50)
+    expect(g).toBeLessThan(75)
+    await setSlider(page, 'exposure', 0)
+    await setSlider(page, 'shadows', -100)
+    g = grey(await previewColor(page, 50, 50))
+    expect(g).toBeLessThan(85)
+    for (const id of ['exposure', 'shadows', 'contrast', 'saturation', 'warmth']) {
+      const r = await page.locator(`#${id}`).evaluate((el: HTMLInputElement) => (+el.min + +el.max))
+      expect(r, `${id} is symmetric around zero`).toBe(0)
+    }
+  })
+
+  test('sliders fill from zero to the thumb, and double-click resets them', async ({ page }) => {
+    await setSlider(page, 'exposure', -75)
+    const fill = () => page.locator('#exposure').evaluate((el: HTMLElement) => [el.style.getPropertyValue('--a'), el.style.getPropertyValue('--b')])
+    expect(await fill()).toEqual(['25%', '50%'])
+    await expect(page.locator('#exposure + output')).toHaveText('-75')
+    await setSlider(page, 'exposure', 75)
+    expect(await fill()).toEqual(['50%', '75%'])
+    await expect(page.locator('#exposure + output')).toHaveText('+75')
+    await page.locator('#exposure').dblclick()
+    await expect(page.locator('#exposure')).toHaveValue('0')
+  })
+
   test('contrast pushes a dark grey towards black', async ({ page }) => {
     await setSlider(page, 'contrast', 100)
     expect(grey(await previewColor(page, 50, 50))).toBeLessThan(15)
@@ -56,7 +84,7 @@ test.describe('light and colour', () => {
     await setSlider(page, 'grain', 10)
     await page.click('#filters [data-f=noir]')
     await page.click('#reset')
-    for (const [id, v] of [['exposure', '0'], ['shadows', '0'], ['contrast', '0'], ['saturation', '100'], ['warmth', '0'], ['grain', '0']]) {
+    for (const [id, v] of [['exposure', '0'], ['shadows', '0'], ['contrast', '0'], ['saturation', '0'], ['warmth', '0'], ['grain', '0']]) {
       await expect(page.locator(`#${id}`)).toHaveValue(v)
     }
     await expect(page.locator('#filters button.on')).toHaveText('Color')
@@ -102,7 +130,7 @@ test.describe('filters', () => {
   })
 
   test('saturation at zero removes colour', async ({ page }) => {
-    await setSlider(page, 'saturation', 0)
+    await setSlider(page, 'saturation', -100)
     expect((await previewStats(page)).maxChroma).toBeLessThanOrEqual(2)
   })
 
