@@ -94,14 +94,20 @@ struct Card<Content: View>: View {
     }
 }
 
-/// A slider that fills from zero to the thumb, so a two-way setting reads as two-way. Double-click to reset.
+/// A slider that fills from zero to the thumb, so a two-way setting reads as two-way. It snaps to its default when
+/// dragged close, and a reset arrow appears once it's been changed (double-clicking also resets it).
 struct InkSlider: View {
     let label: String
     @Binding var value: Double
     var range: ClosedRange<Double>
     var zero = 0.0
     var reset: Double? = 0
-    var text: (Double) -> String = { v in v > 0 ? "+\(Int(v.rounded()))" : "\(Int(v.rounded()))" }
+    var text: (Double) -> String = { v in
+        let r = Int(v.rounded())
+        return r > 0 ? "+\(r)" : "\(r)"
+    }
+
+    private var isEdited: Bool { reset.map { abs(value - $0) > 1e-6 } ?? false }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -121,19 +127,32 @@ struct InkSlider: View {
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 0).onChanged { g in
                     let f = Double(min(1, max(0, (g.location.x - 7) / (w - 14))))
-                    value = range.lowerBound + f * (range.upperBound - range.lowerBound)
+                    let span = range.upperBound - range.lowerBound, next = range.lowerBound + f * span
+                    if let reset, abs(next - reset) < span * 0.01 { value = reset } else { value = next }
                 })
                 .simultaneousGesture(TapGesture(count: 2).onEnded { if let reset { value = reset } })
             }
             .frame(height: 18)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityValue(text(value))
+            .accessibilityAdjustableAction { d in
+                let step = (range.upperBound - range.lowerBound) / 20
+                value = min(range.upperBound, max(range.lowerBound, value + (d == .increment ? step : -step)))
+            }
             Text(text(value)).font(.callout).monospacedDigit().foregroundStyle(.secondary).frame(width: 46, alignment: .trailing)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityValue(text(value))
-        .accessibilityAdjustableAction { d in
-            let step = (range.upperBound - range.lowerBound) / 20
-            value = min(range.upperBound, max(range.lowerBound, value + (d == .increment ? step : -step)))
+            // always takes up its place, so the slider doesn't change width when it appears
+            Button { if let reset { value = reset } } label: {
+                Image(systemName: "arrow.counterclockwise").font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.ink.opacity(0.6))
+                    .frame(width: 18, height: 18).contentShape(Rectangle())
+            }
+            .buttonStyle(InkPress())
+            .opacity(isEdited ? 1 : 0)
+            .disabled(!isEdited)
+            .accessibilityHidden(!isEdited)
+            .help("Reset \(label)")
+            .accessibilityLabel("Reset \(label)")
         }
     }
 }

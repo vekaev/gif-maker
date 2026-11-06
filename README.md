@@ -87,7 +87,7 @@ are [listed below](#mac-and-web).
   part** adds a faster stretch at the playhead, shown as a blue band on the timeline with its own speed.
   The preview plays at those speeds, and the export follows them frame by frame.
 - **Fix the light.** Exposure, Shadows, Contrast, Saturation and Warmth, each going both ways from a
-  centred zero (double-click a slider to reset it), live as you drag. **✨ Auto** lifts
+  centred zero, live as you drag. A reset arrow appears next to any slider you've changed. **✨ Auto** lifts
   a dark clip so the highlights sit near white and the midtones open up. **Reset** puts it all back.
 - **Black-and-white film looks.** Six of them: iPhone Mono, Silvertone and Noir, Leica Monochrom and Leica
   High Contrast, Fuji Acros. Plus optional grain.

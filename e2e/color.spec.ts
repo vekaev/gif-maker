@@ -54,6 +54,36 @@ test.describe('light and colour', () => {
     await expect(page.locator('#exposure')).toHaveValue('0')
   })
 
+  test('an edited slider gets a reset arrow that puts it back', async ({ page }) => {
+    const undo = page.locator('#exposure ~ .undo')
+    await expect(undo).toBeHidden()
+    await setSlider(page, 'exposure', 80)
+    await expect(undo).toBeVisible()
+    const before = grey(await previewColor(page, 50, 50))
+    expect(before).toBeGreaterThan(75)
+    await undo.click()
+    await expect(page.locator('#exposure')).toHaveValue('0')
+    await expect(page.locator('#exposure + output')).toHaveText('0')
+    await expect(undo).toBeHidden()
+    expect(grey(await previewColor(page, 50, 50))).toBeLessThan(before)
+    // the slider keeps its width either way
+    await setSlider(page, 'contrast', 40)
+    const widths = await page.evaluate(() => ['exposure', 'contrast'].map((id) => document.getElementById(id)!.getBoundingClientRect().width))
+    expect(widths[0]).toBe(widths[1])
+  })
+
+  test('other sliders reset too: grain, zoom, width, frame rate, speed', async ({ page }) => {
+    const cases: [string, number, string][] = [['grain', 10, '0'], ['size', 60, '100'], ['width', 300, '600'], ['fps', 30, '15'], ['speed', 100, '0']]
+    for (const [id, value, back] of cases) {
+      await setSlider(page, id, value)
+      await page.locator(`#${id} ~ .undo`).click()
+      await expect(page.locator(`#${id}`), id).toHaveValue(back)
+    }
+    await expect(page.locator('#sizeV')).toHaveText('100%')
+    await expect(page.locator('#fpsV')).toHaveText('15 fps')
+    await expect(page.locator('#speedV')).toHaveText('1×')
+  })
+
   test('contrast pushes a dark grey towards black', async ({ page }) => {
     await setSlider(page, 'contrast', 100)
     expect(grey(await previewColor(page, 50, 50))).toBeLessThan(15)

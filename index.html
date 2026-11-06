@@ -66,6 +66,9 @@
   input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.25); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
   input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.25); }
   .row output { width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+  /* a reset arrow per slider; it keeps its place while hidden, so the slider doesn't change width */
+  .row .undo { flex: none; width: 20px; height: 20px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; line-height: 20px; visibility: hidden; }
+  .row .undo:hover { color: var(--text); }
   .check { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--muted); cursor: pointer; }
   .check input { accent-color: var(--accent); }
   button, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
@@ -168,7 +171,7 @@
     <div class="panel">
       <h2>Look</h2>
       <div id="filters"></div>
-      <div class="row"><label>Grain</label><input id="grain" type="range" min="0" max="30" value="0"><output></output></div>
+      <div class="row"><label>Grain</label><input id="grain" type="range" min="0" max="30" value="0" data-default="0"><output></output></div>
       <p class="muted">Grain barely compresses in a GIF: even a little makes the file 5–8× bigger.</p>
     </div>
 
@@ -181,7 +184,7 @@
         <button data-a="1.7778">16:9</button>
         <button data-a="0">Original</button>
       </div>
-      <div class="row"><label>Zoom</label><input id="size" type="range" min="20" max="100" value="100"><output id="sizeV">100%</output></div>
+      <div class="row"><label>Zoom</label><input id="size" type="range" min="20" max="100" value="100" data-default="100" data-zero="20"><output id="sizeV">100%</output></div>
       <div class="row">
         <button data-snap="left">← Left edge</button>
         <button data-snap="center">Center</button>
@@ -207,7 +210,7 @@
         <button id="fit3" hidden>Fit into 3 s</button>
       </div>
       <div id="partEditor" hidden>
-        <div class="row"><label>This part</label><input id="partSpeed" type="range" min="-300" max="300" value="100" data-zero="0"><output id="partSpeedV">2×</output></div>
+        <div class="row"><label>This part</label><input id="partSpeed" type="range" min="-300" max="300" value="100" data-default="100" data-zero="0"><output id="partSpeedV">2×</output></div>
         <div class="row">
           <button id="partFrom">Starts here</button>
           <button id="partTo">Ends here</button>
@@ -234,8 +237,8 @@
     <div class="panel">
       <h2>Export settings</h2>
       <p class="muted" id="formatHint"></p>
-      <div class="row" id="widthRow"><label>Width, px</label><input id="width" type="range" min="240" max="1920" step="20" value="600"><output id="widthV">600</output></div>
-      <div class="row" id="fpsRow"><label>Frame rate</label><input id="fps" type="range" min="6" max="60" value="15"><output id="fpsV">15 fps</output></div>
+      <div class="row" id="widthRow"><label>Width, px</label><input id="width" type="range" min="240" max="1920" step="20" value="600" data-default="600" data-zero="240"><output id="widthV">600</output></div>
+      <div class="row" id="fpsRow"><label>Frame rate</label><input id="fps" type="range" min="6" max="60" value="15" data-default="15" data-zero="6"><output id="fpsV">15 fps</output></div>
       <label class="check" id="audioRow"><input id="audio" type="checkbox" checked> Add a silent sound track (Telegram then sends it as a video, not a GIF)</label>
       <label class="check" id="ditherRow"><input id="dither" type="checkbox" checked> Smooth gradients (dithering)</label>
       <p class="muted" id="estimate"></p>
@@ -939,12 +942,22 @@ function paintSliders() {
     const zero = at(Math.max(min, Math.min(max, +(el.dataset.zero ?? 0)))), v = at(+el.value);
     el.style.setProperty('--a', Math.min(zero, v) + '%');
     el.style.setProperty('--b', Math.max(zero, v) + '%');
+    const undo = el.parentElement.querySelector('.undo');
+    if (undo) undo.style.visibility = +el.value === +el.dataset.default ? 'hidden' : 'visible';
   });
 }
+const resetSlider = (el) => { el.value = el.dataset.default; el.oninput?.(); paintSliders(); };
+document.querySelectorAll('input[type=range][data-default]').forEach((el) => {
+  const undo = document.createElement('button');
+  undo.className = 'undo'; undo.textContent = '↺'; undo.title = 'Reset';
+  undo.setAttribute('aria-label', `Reset ${el.previousElementSibling?.textContent ?? 'this slider'}`);
+  undo.onclick = () => resetSlider(el);
+  el.parentElement.append(undo);
+});
 document.addEventListener('input', (e) => { if (e.target.matches('input[type=range]')) paintSliders(); });
 document.addEventListener('dblclick', (e) => {
   const el = e.target;
-  if (el.matches?.('input[type=range][data-default]')) { el.value = el.dataset.default; el.oninput?.(); paintSliders(); }
+  if (el.matches?.('input[type=range][data-default]')) resetSlider(el);
 });
 colorIds.forEach((id) => $(id).oninput = rebuild);
 $('reset').onclick = () => { colorIds.forEach((id) => $(id).value = defaults[id]); setFilter('color'); };
