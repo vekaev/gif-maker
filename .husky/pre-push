@@ -1,2 +1,7 @@
 echo "▶ pre-push: end-to-end tests in Chrome"
 npm run test:e2e
+# the engine's tests, when something they cover is on its way out
+if ! git diff --quiet "@{upstream}" -- Core Tests 2>/dev/null; then
+  echo "▶ pre-push: engine tests"
+  scripts/test-core.sh
+fi

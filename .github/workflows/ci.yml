@@ -43,6 +43,22 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: brew install xcodegen
+
+      - name: Build the Mac app
+        run: |
+          xcodegen generate --quiet
+          xcodebuild -project GIFMaker.xcodeproj -scheme GIFMaker -configuration Debug -destination "platform=macOS" \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet build
+
+      - name: Engine tests
+        run: scripts/test-core.sh
+
   # The site only goes live after every test passed on main.
   deploy:
     needs: test

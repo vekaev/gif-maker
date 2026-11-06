@@ -1,0 +1,48 @@
+name: GIFMaker
+options:
+  bundleIdPrefix: app.gifmaker
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.10.0"
+targets:
+  GIFMaker:
+    type: application
+    platform: macOS
+    sources: [App, Core]
+    dependencies:
+      - package: Sparkle
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        SUFeedURL: $(SPARKLE_FEED_URL)
+        SUPublicEDKey: nsbjXaTcCmQTW42Mlyg+gz0dFE6oO2lXI36zzJb6hg0=
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+        LSApplicationCategoryType: public.app-category.graphics-design
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Video or image
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.movie, com.compuserve.gif, public.image]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.gifmaker.mac
+        PRODUCT_NAME: GIF Maker
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: GIF Maker
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ENABLE_APP_SANDBOX: NO
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        # GitHub always serves the latest release's asset here; release.sh --local overrides it for tests.
+        SPARKLE_FEED_URL: https://github.com/vekaev/gif-maker/releases/latest/download/appcast.xml

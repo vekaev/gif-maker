@@ -17,17 +17,25 @@ crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-w
 
 <br>
 
-[![Open GIF Maker](https://img.shields.io/badge/Open-GIF%20Maker-4f8cff?style=for-the-badge&logo=googlechrome&logoColor=white)](https://vekaev.github.io/gif-maker/)
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/vekaev/gif-maker/releases/latest/download/GIFMaker-mac.dmg)
+[![Open in the browser](https://img.shields.io/badge/Open-in%20the%20browser-4f8cff?style=for-the-badge&logo=googlechrome&logoColor=white)](https://vekaev.github.io/gif-maker/)
 
-<sub>Free, no sign-up, no install. Works best in Chrome or Edge on a computer.</sub>
+<sub>Free, no sign-up. The Mac app is native and universal (Apple Silicon + Intel), macOS 14 or later. The web version works best in Chrome or Edge on a computer.</sub>
 
 <br><br>
 
 <img src="docs/screenshot.png" alt="GIF Maker in Before / After view: a square crop of a colourful clip, the original on the left of a white divider and the Leica Monochrom black-and-white result on the right; the filter, frame, trim and colour controls on the side" width="100%">
 
-<sub>The demo clip is a generated Mandelbrot zoom, shown in Before / After with the Leica Monochrom look.</sub>
+<sub>The web version. The demo clip is a generated Mandelbrot zoom, shown in Before / After with the Leica Monochrom look.</sub>
+
+<br><br>
+
+<img src="docs/screenshot-mac.png" alt="The GIF Maker Mac app: a clip with a crop frame, a large preview in the resizable side panel, the look list, and a QuickTime-style yellow trim frame on a filmstrip" width="100%">
+
+<sub>The Mac app, on the same clip.</sub>
 
 <p>
+  <a href="#install">Install</a> ·
   <a href="#features">Features</a> ·
   <a href="#formats">Formats</a> ·
   <a href="#black-and-white-looks">B&amp;W looks</a> ·
@@ -39,7 +47,27 @@ crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-w
 
 </div>
 
+## Install
+
+**In the browser:** nothing to install, just open **[vekaev.github.io/gif-maker](https://vekaev.github.io/gif-maker/)**.
+
+**On a Mac, one line in Terminal** (no security prompt):
+
+    curl -fsSL https://raw.githubusercontent.com/vekaev/gif-maker/main/scripts/install.sh | sh
+
+It downloads the latest release, puts GIF Maker in Applications and opens it.
+
+**Or the DMG:** [download](https://github.com/vekaev/gif-maker/releases/latest/download/GIFMaker-mac.dmg), open it
+and drag GIF Maker to Applications. The first time, if your Mac says it can't check the app, open
+System Settings ▸ Privacy & Security and click **Open Anyway** (once; GIF Maker isn't notarized yet).
+
+Either way the Mac app updates itself: once a day, or right away via *GIF Maker ▸ Check for Updates…*.
+Needs macOS 14 or later, Apple Silicon or Intel.
+
 ## Features
+
+The Mac app and the web version do the same things, with the same looks and the same maths. The differences
+are [listed below](#mac-and-web).
 
 - **Video, GIF or photo in.** MP4, MOV, WebM and anything else your browser plays; animated GIF, WebP or
   PNG (each frame keeps its own timing); or a photo, which becomes a 3-second clip. So a GIF you already
@@ -73,6 +101,16 @@ crop it to 1:1, cut the moment you want, lift a dark clip, give it a black-and-w
 - **Fast.** Frames are decoded once, in order, with WebCodecs instead of seeking for each one: a 7.5-second
   2880×1620 HEVC screen recording became a 600 px GIF in 2 s instead of 12 s. GIF encoding runs in a
   background worker and the preview only redraws when something changed, so the tab doesn't freeze.
+
+## Mac and web
+
+| | Mac app | Web version |
+|---|---|---|
+| Speed | Native: hardware video decoding and encoding, GPU colour | Fast in Chrome and Edge, through WebCodecs |
+| Saved to | Your Downloads folder, or one you choose in Settings | Your browser's downloads |
+| Video in | MP4, MOV, HEVC, M4V | Whatever your browser plays, WebM too |
+| WebM out | No sound track | Optional silent track |
+| Works offline | Yes | Needs to load its libraries |
 
 ## Formats
 
@@ -176,7 +214,20 @@ you remove them or clear site data. No analytics, no cookies, no accounts.
 
 ## Development
 
-The app itself needs nothing installed. The tests need Node 22+ and Google Chrome.
+**The Mac app** is SwiftUI over a small engine in `Core/` (AVFoundation reads and writes video, Core Image does the
+crop and colour on the GPU, `Core/GIFWriter.swift` writes the GIFs). macOS has no VP9 encoder, so WebM and stickers
+go through WebKit's, in a hidden web view. It needs Xcode and XcodeGen (`brew install xcodegen`).
+
+```bash
+scripts/install-mac.sh     # build, install to ~/Applications, restart
+scripts/test-core.sh       # the engine's tests: exports real files from e2e/fixtures and checks what's in them
+scripts/release.sh X.Y.Z notes.md   # a release: version, DMG, signed appcast, tag, GitHub release
+```
+
+The Sparkle update key lives in the login keychain (account `gif-maker`). Back it up, or installed copies can never
+update again: `build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys --account gif-maker -x <safe place>/gif-maker-sparkle.key`.
+
+**The web version** is `index.html` and needs nothing installed. The tests need Node 22+ and Google Chrome.
 
 ```bash
 npm install                # Playwright, http-server, husky (and the git hooks)
@@ -214,10 +265,12 @@ clips in `e2e/fixtures` and checks the actual output files, not just the UI:
 - **Layout:** fits the window with no page scroll, the resizable side panel, and phone width.
 
 **Git hooks** (husky): `pre-commit` runs the quick checks (the page's script parses, the README's files
-exist, CDN versions are pinned); `pre-push` runs the whole end-to-end suite.
+exist, CDN versions are pinned); `pre-push` runs the whole end-to-end suite, and the engine's tests when
+`Core/` or `Tests/` changed.
 
-**CI/CD** (GitHub Actions): every push and pull request runs the same checks and suite in Chrome on Linux.
-On `main`, the site deploys to GitHub Pages only after everything passed.
+**CI/CD** (GitHub Actions): every push and pull request runs the same checks and suite in Chrome on Linux, and
+builds the Mac app and runs the engine's tests on macOS. On `main`, the site deploys to GitHub Pages only after
+the web tests passed. Mac releases are made with `scripts/release.sh` on a Mac that has the update key.
 
 ## Status
 
