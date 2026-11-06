@@ -7,7 +7,7 @@ enum MediaError: LocalizedError {
     case unreadable(String), cancelled, failed(String)
     var errorDescription: String? {
         switch self {
-        case .unreadable(let name): "Can’t open \(name). Try an MP4, MOV, GIF or a photo."
+        case .unreadable(let name): "Can’t open \(name). Try an MP4, MOV, WebM, GIF or a photo."
         case .cancelled: "Cancelled."
         case .failed(let why): why
         }
@@ -232,8 +232,12 @@ final class ImageSource: MediaSource {
 }
 
 enum Media {
-    /// Opens anything the app can edit. Images by their type, everything else as video.
-    static func open(_ url: URL) async throws -> any MediaSource {
+    /// Opens anything the app can edit. Images by their type, WebM through an import, everything else as video.
+    static func open(_ url: URL, progress: ((Double) -> Void)? = nil) async throws -> any MediaSource {
+        if url.pathExtension.lowercased() == "webm" {
+            let imported = try WebMImporter.importToMovie(url, progress: progress ?? { _ in })
+            return try await VideoSource(url: imported)
+        }
         let type = (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType) ?? UTType(filenameExtension: url.pathExtension)
         if type?.conforms(to: .image) == true { return try ImageSource(url: url) }
         do { return try await VideoSource(url: url) }

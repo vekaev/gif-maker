@@ -16,6 +16,7 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>public.movie</string>
+				<string>org.webmproject.webm</string>
 				<string>com.compuserve.gif</string>
 				<string>public.image</string>
 			</array>

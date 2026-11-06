@@ -33,6 +33,14 @@ func open(_ name: String) throws -> any MediaSource {
     return try result.get()
 }
 
+func await_open(_ url: URL) throws -> any MediaSource {
+    var result: Result<any MediaSource, Error>!
+    let done = DispatchSemaphore(value: 0)
+    Task { do { result = .success(try await Media.open(url)) } catch { result = .failure(error) }; done.signal() }
+    done.wait()
+    return try result.get()
+}
+
 func export(_ source: any MediaSource, clip: Clip? = nil, crop: CGRect? = nil, adjustments: Adjustments = Adjustments(), settings: ExportSettings, name: String = "out") throws -> Exporter.Output {
     var c = clip ?? Clip(start: 0, end: source.duration)
     if c.end == 0 { c.end = source.duration }
@@ -237,6 +245,37 @@ func mainTests() {
         let g = inspectGIF(try export(s, settings: set).url)
         check(g.frames == 45, "\(g.frames) frames")
     }
+    test("WebM in: VP9 keeps its frames, length and brightness") {
+        let s = try open("fade.webm")
+        check(s.size == CGSize(width: 320, height: 180), "\(s.size)"); near(s.duration, 5, 0.1, "duration")
+        var set = ExportSettings(); set.width = 180
+        let g = inspectGIF(try export(s, clip: Clip(start: 1, end: 4), settings: set, name: "fade").url)
+        check(g.frames == 45, "\(g.frames) frames"); near(g.duration, 3, 0.011, "length")
+        near(g.centre[0], 51, 12, "1 s in"); near(g.centre[22], 125, 14, "2.5 s in"); near(g.centre[44], 200, 16, "3.9 s in")
+    }
+    test("WebM in: VP8, and live recordings with unknown sizes and a sound track") {
+        let vp8 = try open("bars-vp8.webm")
+        near(vp8.duration, 1, 0.1, "VP8 duration")
+        let live = try open("live.webm")
+        check(live.size == CGSize(width: 320, height: 180), "\(live.size)"); near(live.duration, 1, 0.1, "live duration")
+        var set = ExportSettings(); set.width = 180
+        check(inspectGIF(try export(live, settings: set).url).frames == 15, "live frames")
+    }
+    test("a WebM sticker comes back in and becomes a sticker again, with a clean name") {
+        var set = ExportSettings(); set.format = .sticker
+        let first = try export(try open("fade.gif"), settings: set, name: "round-trip")
+        let again = try await_open(first.url)
+        check(again.size == CGSize(width: 512, height: 512), "\(again.size)")
+        check(FileNames.clean("Recording #7 — 2026-11-05 15.04-leicaHC-sticker-512x512 (7).webm") == "Recording #7 — 2026-11-05 15.04", "clean name")
+        let second = try export(again, settings: set, name: "fade-again")
+        check(second.bytes <= 256 * 1024, "\(second.bytes) bytes")
+    }
+    test("something that only claims to be WebM says so") {
+        let fake = outFolder.appendingPathComponent("fake.webm")
+        try Data("not a video".utf8).write(to: fake)
+        do { _ = try await_open(fake); check(false, "should have thrown") }
+        catch { check(error.localizedDescription.contains("Can’t open"), error.localizedDescription) }
+    }
     test("a file that isn't a video says so") {
         do { _ = try open("broken.mp4"); check(false, "should have thrown") }
         catch { check(error.localizedDescription.contains("Can’t open"), error.localizedDescription) }
@@ -319,6 +358,7 @@ func mainTests() {
 Thread.detachNewThread {
     mainTests()
     try? FileManager.default.removeItem(at: outFolder)
+    try? FileManager.default.removeItem(at: WebMImporter.folder)
     print(failures == 0 ? "✓ \(passed) checks passed" : "✗ \(failures) failed, \(passed) passed")
     exit(failures == 0 ? 0 : 1)
 }

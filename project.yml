@@ -31,7 +31,7 @@ targets:
           - CFBundleTypeName: Video or image
             CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
-            LSItemContentTypes: [public.movie, com.compuserve.gif, public.image]
+            LSItemContentTypes: [public.movie, org.webmproject.webm, com.compuserve.gif, public.image]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.gifmaker.mac

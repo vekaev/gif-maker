@@ -69,7 +69,7 @@ Needs macOS 14 or later, Apple Silicon or Intel.
 The Mac app and the web version do the same things, with the same looks and the same maths. The differences
 are [listed below](#mac-and-web).
 
-- **Video, GIF or photo in.** MP4, MOV, WebM and anything else your browser plays; animated GIF, WebP or
+- **Video, GIF or photo in.** MP4, MOV, HEVC, WebM; animated GIF, WebP or
   PNG (each frame keeps its own timing); or a photo, which becomes a 3-second clip. So a GIF you already
   edited elsewhere can become a Telegram sticker or an MP4.
 - **See the result big, or side by side.** **Crop** shows the whole frame with the crop box. **Result**
@@ -108,7 +108,7 @@ are [listed below](#mac-and-web).
 |---|---|---|
 | Speed | Native: hardware video decoding and encoding, GPU colour | Fast in Chrome and Edge, through WebCodecs |
 | Saved to | Your Downloads folder, or one you choose in Settings | Your browser's downloads |
-| Video in | MP4, MOV, HEVC, M4V | Whatever your browser plays, WebM too |
+| Video in | MP4, MOV, HEVC, M4V, WebM (VP9, VP8, AV1) | Whatever your browser plays |
 | WebM out | No sound track | Optional silent track |
 | Works offline | Yes | Needs to load its libraries |
 

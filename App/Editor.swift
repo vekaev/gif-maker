@@ -3,6 +3,7 @@ import AVFoundation
 import CoreImage
 import Observation
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum ViewMode: String, CaseIterable, Identifiable {
     case crop, result, compare
@@ -100,6 +101,7 @@ func speedText(_ x: Double) -> String {
     @ObservationIgnored private var scrubResume = false
 
     init() {
+        try? FileManager.default.removeItem(at: WebMImporter.folder)   // whatever an earlier run left behind
         if let data = UserDefaults.standard.data(forKey: "exportSettings"), let saved = try? JSONDecoder().decode(ExportSettings.self, from: data) {
             settings = saved
         }
@@ -130,16 +132,22 @@ func speedText(_ x: Double) -> String {
     func openPanel() {
         guard !isExporting else { return }
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.movie, .video, .gif, .image]
+        panel.allowedContentTypes = [.movie, .video, .gif, .image] + (UTType(filenameExtension: "webm").map { [$0] } ?? [])
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url { open(url) }
     }
 
     func open(_ url: URL) {
         guard !isExporting else { return }
+        let isWebM = url.pathExtension.lowercased() == "webm"
+        if isWebM { status = .working("Preparing \(url.lastPathComponent)…", nil) }
         Task {
             do {
-                let media = try await Media.open(url)
+                let media = try await Media.open(url) { [weak self] f in
+                    Task { @MainActor [weak self] in
+                        if case .working = self?.status { self?.status = .working("Preparing \(url.lastPathComponent)…", f) }
+                    }
+                }
                 use(media, name: FileNames.clean(url.lastPathComponent))
             } catch {
                 status = .failed(error.localizedDescription)
@@ -150,6 +158,7 @@ func speedText(_ x: Double) -> String {
     private func use(_ media: any MediaSource, name: String) {
         pause()
         player = nil; output = nil; clock = nil; currentImage = nil
+        WebMImporter.discard(source)
         source = media
         baseName = name
         clip = Clip(start: 0, end: media.duration)
@@ -181,7 +190,9 @@ func speedText(_ x: Double) -> String {
         guard !isExporting else { return }
         pause()
         stripTask?.cancel()
-        source = nil; player = nil; output = nil; currentImage = nil; thumbnails = []
+        player = nil; output = nil; currentImage = nil; thumbnails = []
+        WebMImporter.discard(source)
+        source = nil
         status = .idle
     }
 

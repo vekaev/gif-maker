@@ -11,6 +11,7 @@ struct ContentView: View {
         ZStack {
             Theme.paper.ignoresSafeArea()
             if editor.source == nil { startPage } else { editorPage.ignoresSafeArea(.container, edges: .top) }
+            WindowChrome().frame(width: 0, height: 0)
             if dropping {
                 RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.ink, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
                     .padding(12).allowsHitTesting(false)
@@ -34,6 +35,9 @@ struct ContentView: View {
             Pill(title: "Open a file") { editor.openPanel() }.padding(.top, 22)
             if case .failed(let why) = editor.status {
                 Text(why).font(.callout).foregroundStyle(Theme.warn).padding(.top, 14)
+            }
+            if case .working(let what, let f) = editor.status {
+                Text(f.map { "\(what) \(Int($0 * 100))%" } ?? what).font(.callout).monospacedDigit().foregroundStyle(.secondary).padding(.top, 14)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -87,7 +91,7 @@ struct ContentView: View {
                 Pill(title: "Download \(editor.settings.format.action)") { editor.export() }
             }
         }
-        .padding(.leading, 84).padding(.trailing, 14).frame(height: 44)
+        .padding(.leading, 78).padding(.trailing, 10).frame(height: WindowChrome.barHeight)
         .overlay(alignment: .bottom) {
             if case .working(_, let f?) = editor.status {
                 GeometryReader { g in Rectangle().fill(Theme.ink).frame(width: g.size.width * f, height: 2) }.frame(height: 2)
@@ -120,5 +124,43 @@ struct ContentView: View {
                 .onEnded { _ in if let w = dragWidth { sideWidth = w }; dragWidth = nil })
             .simultaneousGesture(TapGesture(count: 2).onEnded { sideWidth = 360 })
             .accessibilityLabel("Resize the side panel")
+    }
+}
+
+/// One compact row for the window buttons and the bar: the buttons move down to the bar's centre line.
+/// AppKit lays them out again now and then, so this repeats on window updates; it changes nothing when they're in place.
+struct WindowChrome: NSViewRepresentable {
+    static let barHeight: CGFloat = 38
+
+    func makeNSView(context: Context) -> Aligner { Aligner() }
+    func updateNSView(_ view: Aligner, context: Context) { view.align() }
+
+    final class Aligner: NSView {
+        private var observer: Any?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let observer { NotificationCenter.default.removeObserver(observer); self.observer = nil }
+            guard let window else { return }
+            observer = NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: window, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.align() }
+            }
+            align()
+        }
+
+        deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
+
+        func align() {
+            guard let window, !window.styleMask.contains(.fullScreen) else { return }
+            for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                guard let button = window.standardWindowButton(type), let bar = button.superview else { continue }
+                // the distance from the window's top to the button's centre should be half the bar
+                let shift = WindowChrome.barHeight / 2 - button.frame.height / 2
+                let y = bar.isFlipped ? shift : bar.bounds.height - shift - button.frame.height
+                if abs(button.frame.minY - y) > 0.5 { button.setFrameOrigin(NSPoint(x: button.frame.minX, y: y)) }
+            }
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }

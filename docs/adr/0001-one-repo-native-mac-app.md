@@ -11,4 +11,7 @@ obvious route; WebKit already contains an encoder, reachable through WebCodecs i
 third-party binary and covers Intel too. Its limit: it depends on the system's WebKit, so on a macOS whose WebKit
 can't do it, stickers and WebM show a clear error while GIF and MP4 keep working.
 
-**Not done.** WebM as an input on the Mac (AVFoundation can't read it), and Opus sound in WebM output.
+**WebM in.** AVFoundation can't read WebM, so a small parser finds the frames, WebKit decodes them, and they go into a
+temporary ProRes movie that edits like any other video. Sound in a WebM source is ignored, as it is for every source.
+
+**Not done.** Opus sound in WebM output.

@@ -133,8 +133,58 @@ final class MP4Writer {
     }
 }
 
-/// macOS has no public VP9 encoder, but WebKit does, through WebCodecs. Telegram video stickers must be VP9, so
-/// the frames go through a hidden web view. It runs on the main thread; call these from a background one.
+/// A hidden web view for what only WebKit can do on a Mac: VP9 through WebCodecs. It runs on the main thread;
+/// call this from a background one.
+final class WebKitWorker: NSObject {
+    private var web: WKWebView?
+    private var delegate: Loaded?
+
+    private final class Loaded: NSObject, WKNavigationDelegate {
+        let done: DispatchSemaphore
+        init(_ done: DispatchSemaphore) { self.done = done }
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { done.signal() }
+    }
+
+    init(page: String) throws {
+        super.init()
+        let ready = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            let config = WKWebViewConfiguration()
+            config.preferences.inactiveSchedulingPolicy = .none   // keep working while the app is in the background
+            let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 16, height: 16), configuration: config)
+            let delegate = Loaded(ready)
+            web.navigationDelegate = delegate
+            self.delegate = delegate
+            self.web = web
+            web.loadHTMLString(page, baseURL: URL(string: "https://gifmaker.local/"))   // WebCodecs needs a secure context
+        }
+        guard ready.wait(timeout: .now() + 30) != .timedOut else { throw MediaError.failed("WebKit didn’t start.") }
+    }
+
+    // WebKit objects have to go away on the main thread, also when the work stops early
+    deinit {
+        let (web, delegate) = (web, delegate)
+        DispatchQueue.main.async { _ = web; _ = delegate }
+    }
+
+    func call(_ js: String, _ args: [String: Any]) throws -> Any? {
+        let done = DispatchSemaphore(value: 0)
+        var result: Result<Any?, Error> = .success(nil)
+        DispatchQueue.main.async {
+            self.web?.callAsyncJavaScript(js, arguments: args, in: nil, in: .page) { r in
+                switch r {
+                case .success(let v): result = .success(v)
+                case .failure(let e): result = .failure(e)
+                }
+                done.signal()
+            }
+        }
+        if done.wait(timeout: .now() + 120) == .timedOut { throw MediaError.failed("WebKit stopped responding.") }
+        return try result.get()
+    }
+}
+
+/// macOS has no public VP9 encoder, but WebKit does, through WebCodecs. Telegram video stickers must be VP9.
 final class VP9Encoder: NSObject {
     struct Chunk { var time: Double; var key: Bool; var data: Data }
 
@@ -172,64 +222,24 @@ final class VP9Encoder: NSObject {
     </script>
     """
 
-    private var web: WKWebView?
-
-    // WebKit objects have to go away on the main thread, also when an export stops early
-    deinit {
-        let (web, delegate) = (web, delegate)
-        DispatchQueue.main.async { _ = web; _ = delegate }
-    }
-
-    private func call(_ js: String, _ args: [String: Any]) throws -> Any? {
-        let done = DispatchSemaphore(value: 0)
-        var result: Result<Any?, Error> = .success(nil)
-        DispatchQueue.main.async {
-            self.web?.callAsyncJavaScript(js, arguments: args, in: nil, in: .page) { r in
-                switch r {
-                case .success(let v): result = .success(v)
-                case .failure(let e): result = .failure(e)
-                }
-                done.signal()
-            }
-        }
-        if done.wait(timeout: .now() + 120) == .timedOut { throw MediaError.failed("The VP9 encoder stopped responding.") }
-        return try result.get()
-    }
-
-    private final class Loaded: NSObject, WKNavigationDelegate {
-        let done: DispatchSemaphore
-        init(_ done: DispatchSemaphore) { self.done = done }
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { done.signal() }
-    }
-    private var delegate: Loaded?
+    private var worker: WebKitWorker?
 
     func start(width: Int, height: Int, fps: Int, bitrate: Int) throws {
-        let ready = DispatchSemaphore(value: 0)
-        DispatchQueue.main.async {
-            let config = WKWebViewConfiguration()
-            config.preferences.inactiveSchedulingPolicy = .none   // keep working while the app is in the background
-            let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 16, height: 16), configuration: config)
-            let delegate = Loaded(ready)
-            web.navigationDelegate = delegate
-            self.delegate = delegate
-            self.web = web
-            web.loadHTMLString(Self.page, baseURL: URL(string: "https://gifmaker.local/"))   // WebCodecs needs a secure context
-        }
-        guard ready.wait(timeout: .now() + 30) != .timedOut else { throw MediaError.failed("The VP9 encoder didn’t start.") }
-        do { _ = try call("return await start(width, height, fps, bitrate);", ["width": width, "height": height, "fps": fps, "bitrate": bitrate]) }
+        worker = try WebKitWorker(page: Self.page)
+        do { _ = try worker?.call("return await start(width, height, fps, bitrate);", ["width": width, "height": height, "fps": fps, "bitrate": bitrate]) }
         catch { throw MediaError.failed("This Mac’s WebKit can’t encode VP9, which WebM and Telegram stickers need. MP4 and GIF still work.") }
     }
 
     func add(rgba: Data, time: Double, duration: Double, key: Bool) throws {
-        _ = try call("return await frame(data, time, duration, key);",
+        _ = try worker?.call("return await frame(data, time, duration, key);",
                      ["data": rgba.base64EncodedString(), "time": Int(time * 1e6), "duration": Int(duration * 1e6), "key": key])
     }
 
     func finish() throws -> [Chunk] {
-        let json = try call("return await finish();", [:]) as? String ?? "[]"
+        let json = try worker?.call("return await finish();", [:]) as? String ?? "[]"
         struct Raw: Decodable { var t: Double; var k: Bool; var d: String }
         let raw = try JSONDecoder().decode([Raw].self, from: Data(json.utf8))
-        DispatchQueue.main.async { self.web = nil; self.delegate = nil }
+        worker = nil
         return raw.map { Chunk(time: $0.t, key: $0.k, data: Data(base64Encoded: $0.d) ?? Data()) }
     }
 }

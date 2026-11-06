@@ -43,6 +43,7 @@ decoration. Colour belongs to the picture, and to the one thing borrowed from Qu
   converted to sRGB and midtones lift (137 instead of 125). HDR does get converted.
 - **AVAssetWriter holds each track back for the other.** Never block on the audio input: the silent track runs ahead of
   the picture, and `endSession` cuts what's left over.
+- **AVFoundation can't read WebM.** `Core/WebMImport.swift` parses it, decodes in WebKit, writes a temporary ProRes movie.
 - **macOS has no VP9 encoder; WebKit does**, through WebCodecs in a hidden `WKWebView` (`Core/VideoWriters.swift`). It
   needs a secure base URL and `inactiveSchedulingPolicy = .none`.
 - **A WebM sent into a Telegram chat stays a file.** Stickers go through @Stickers with `/newvideo`, as a file, title
